@@ -1,24 +1,48 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
 
-LOG_FILE="/dockerstartup/custom/init.log"
 LOG_DIR="/dockerstartup/custom"
-
+LOG_FILE="${LOG_DIR}/init.log"
 mkdir -p "${LOG_DIR}"
+touch "${LOG_FILE}"
+chmod 644 "${LOG_FILE}"
 
+# 重定向日志到文件并记录 tee 的 PID
 exec > >(tee -a "${LOG_FILE}") 2>&1
 TEEPID=$!
 echo "${TEEPID}" > /tmp/.init_tee.pid
+
+cleanup() {
+  if [ -n "${TEEPID:-}" ] && ps -p "${TEEPID}" >/dev/null 2>&1; then
+    kill "${TEEPID}" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 echo "========================================"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] init.sh START"
 echo "========================================"
 
+apt_install() {
+  local pkgs=("$@")
+  if [ "${#pkgs[@]}" -eq 0 ]; then
+    return 0
+  fi
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y --no-install-recommends -qq "${pkgs[@]}"
+}
+
 setup_users() {
   echo ""
   echo "--- [setup_users] ---"
 
-  echo "root:1234" | chpasswd
+  # 安全提示：生产环境请不要硬编码密码，使用环境变量或 secret 管理
+  ROOT_PASS="${ROOT_PASS:-1234}"
+  DEFAULT_PASS="${DEFAULT_PASS:-1234}"
+
+  echo "root:${ROOT_PASS}" | chpasswd
   echo "[INFO] Root password set."
 
   if ! id default >/dev/null 2>&1; then
@@ -28,11 +52,15 @@ setup_users() {
     echo "[INFO] User 'default' already exists."
   fi
 
-  echo "default:1234" | chpasswd
+  echo "default:${DEFAULT_PASS}" | chpasswd
   echo "[INFO] Default password set."
 
-  usermod -aG sudo default
-  echo "[INFO] Default user added to sudo group."
+  if getent group sudo >/dev/null 2>&1; then
+    usermod -aG sudo default || true
+  elif getent group wheel >/dev/null 2>&1; then
+    usermod -aG wheel default || true
+  fi
+  echo "[INFO] Default user added to sudo group if available."
 
   if id default >/dev/null 2>&1; then
     echo "[INFO] Default user check PASSED."
@@ -48,7 +76,7 @@ setup_ssh() {
 
   if ! dpkg -s openssh-server >/dev/null 2>&1; then
     echo "[INFO] Installing openssh-server..."
-    apt-get update -qq && apt-get install -y -qq openssh-server
+    apt_install openssh-server
     echo "[INFO] openssh-server installed."
   else
     echo "[INFO] openssh-server already installed."
@@ -56,27 +84,31 @@ setup_ssh() {
 
   mkdir -p /var/run/sshd
 
-  if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
-    echo "[INFO] Generating SSH host keys..."
-    dpkg-reconfigure openssh-server
-    echo "[INFO] SSH host keys generated."
+  # 生成缺失的主机密钥
+  ssh-keygen -A || true
+
+  SSHD_CONF="/etc/ssh/sshd_config"
+  if [ -f "${SSHD_CONF}" ]; then
+    sed -i '/^\s*PermitRootLogin\s\+/Id' "${SSHD_CONF}" || true
+    sed -i '/^\s*PasswordAuthentication\s\+/Id' "${SSHD_CONF}" || true
+    {
+      echo "PermitRootLogin yes"
+      echo "PasswordAuthentication yes"
+    } >> "${SSHD_CONF}"
   else
-    echo "[INFO] SSH host keys already exist."
+    echo "[ERROR] ${SSHD_CONF} not found."
+    exit 1
   fi
 
-  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-  sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-
-  if grep -q "PermitRootLogin yes" /etc/ssh/sshd_config && \
-     grep -q "PasswordAuthentication yes" /etc/ssh/sshd_config; then
+  if grep -q "^PermitRootLogin yes" "${SSHD_CONF}" && grep -q "^PasswordAuthentication yes" "${SSHD_CONF}"; then
     echo "[INFO] SSH config updated successfully."
   else
     echo "[ERROR] SSH config update FAILED."
     exit 1
   fi
 
-  if ! pgrep -x sshd >/dev/null; then
-    /usr/sbin/sshd
+  if ! pgrep -x sshd >/dev/null 2>&1; then
+    /usr/sbin/sshd || { echo "[ERROR] Failed to start sshd"; exit 1; }
     echo "[INFO] SSH service started."
   else
     echo "[INFO] SSH service already running."
@@ -87,7 +119,6 @@ setup_packages() {
   echo ""
   echo "--- [setup_packages] ---"
 
-  # 你要安装的包列表，可以随时增减
   PACKAGES=(
     git
     curl
@@ -96,8 +127,6 @@ setup_packages() {
     unzip
     tmux
     geany
-    # 在这里继续添加其他需要的包，比如 opencode
-    # curl -fsSL https://opencode.ai/install | bash
   )
 
   MISSING=()
@@ -109,15 +138,52 @@ setup_packages() {
 
   if [ ${#MISSING[@]} -gt 0 ]; then
     echo "[INFO] Installing missing packages: ${MISSING[*]}"
-    apt-get update -qq && apt-get install -y -qq "${MISSING[@]}"
+    apt_install "${MISSING[@]}"
   else
     echo "[INFO] All packages already installed."
   fi
 }
 
+setup_opencode() {
+  echo ""
+  echo "--- [setup_opencode] ---"
+
+  # OpenCode 将会被安装到当前用户的 HOME 目录（在此镜像中 root 的 HOME 往往是 /headless）
+  OPENCODE_BIN="${HOME}/.opencode/bin/opencode"
+
+  if [ ! -x "${OPENCODE_BIN}" ]; then
+    echo "[INFO] Installing OpenCode as root..."
+    curl -fsSL https://opencode.ai/install | bash || echo "[WARN] OpenCode install script returned non-zero"
+    echo "[INFO] OpenCode installation attempted as root."
+  else
+    echo "[INFO] OpenCode is already installed for root."
+  fi
+
+  # 确保 PATH 包含 opencode
+  export PATH="${HOME}/.opencode/bin:${PATH}"
+
+  # 不再对整个 ${LOG_DIR} 执行 chown -R，因为 init.sh 是只读挂载的，会报错
+  # 如果需要可以只 chown log 文件： chown root:root "${LOG_DIR}/opencode_web.log" || true
+
+  # 使用 tmux 在 root 下启动 opencode web
+  if ! command -v opencode >/dev/null 2>&1; then
+    echo "[WARN] opencode not found in PATH for root; skipping start."
+    return 0
+  fi
+
+  if tmux has-session -t opencode >/dev/null 2>&1; then
+    echo "[INFO] OpenCode tmux session already exists."
+  else
+    tmux new-session -d -s opencode "opencode web --hostname 0.0.0.0 --port 4096 2>&1 | tee ${LOG_DIR}/opencode_web.log"
+    echo "[INFO] OpenCode Web UI started in tmux session 'opencode' as root."
+  fi
+}
+
+# 执行顺序
 setup_users
-setup_ssh
 setup_packages
+setup_ssh
+setup_opencode
 
 echo ""
 echo "========================================"
