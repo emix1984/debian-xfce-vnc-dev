@@ -14,7 +14,7 @@
 docker-compose.override.yml
 
 # Local Workspace (as defined in docker-compose.yml)
-/workspace/
+# /workspace/
 
 # Logs
 *.log
