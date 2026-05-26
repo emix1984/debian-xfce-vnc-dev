@@ -138,6 +138,11 @@ setup_packages() {
     unzip
     tmux
     geany
+    python3
+    python3-pip
+    python3-dev
+    build-essential
+    jq
   )
 
   MISSING=()

@@ -1,232 +1,139 @@
-# Debian Xfce VNC 容器
+# Debian Xfce VNC 智能开发与 Agent 工作站
 
-基于 [consol/debian-xfce-vnc](https://github.com/ConSol/docker-headless-vnc-container) 官方镜像，通过 `docker-compose.yml` + `init.sh` 实现启动时自定义配置。
+基于 [consol/debian-xfce-vnc](https://github.com/ConSol/docker-headless-vnc-container) 官方镜像，通过 `docker-compose.yml` + `init.sh` 构建的免编译、即插即用型 AI Agent 开发与测试沙盒环境。
 
-**核心思路**：不修改 Dockerfile，保持镜像一致性。所有自定义逻辑写在 `init.sh` 中，任何环境（本地、服务器、CI）都用同一个镜像。
+本工作站已深度集成 **OpenCode**（一款先进的本地开发与智能体执行框架），并配备了完善的 MCP（Model Context Protocol）能力配置脚本、远程 LLM（Ollama）智能对接方案，以及自动化插件与技能分发体系。
 
 ---
 
 ## 目录结构
 
+```text
+debian-xfce-vnc-dev/
+├── docker-compose.yml          # 容器编排 — 配置宿主机端口映射、目录挂载及系统变量
+├── init.sh                     # 容器初次启动引导脚本 — 初始化用户、配置SSH服务、安装系统依赖及OpenCode
+├── README.md                   # 本说明文件
+└── workspace/                  # 专用工作空间（挂载至容器桌面 `/headless/Desktop/workspace`）
+    ├── setup_mcp.py            # MCP 依赖及配置安装脚本（含 mem0ai、Playwright、FAISS 等）
+    ├── setup_opencode_ollama.sh# 远程 Ollama 实例连接与模型智能导入脚本
+    ├── setup_plugin.py         # OpenCode 插件管理与自动安装工具
+    ├── setup_skill.py          # OpenCode 技能包管理与自动安装工具
+    └── restart_opencode.sh     # OpenCode Web 服务一键热重启工具
 ```
-debian/
-├── docker-compose.yml    # 容器编排 — 挂载 init.sh、配置端口/环境变量
-├── init.sh               # 启动时自动执行的初始化脚本
-└── README.md             # 本文件
-```
+
+---
+
+## 访问与服务端口
+
+容器启动后，将对外暴露以下通信与管理接口：
+
+| 服务 | 宿主机映射地址 | 容器内部端口 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **VNC 桌面** | `vnc://localhost:5901` | `5901` | 使用 VNC Viewer 等客户端直接访问系统桌面 |
+| **noVNC 网页版** | `http://localhost:6901` | `6901` | 浏览器直接访问的桌面终端，适合无客户端环境 |
+| **SSH 服务** | `ssh default@localhost -p 2222` | `22` | 宿主机终端命令行远程登录容器（默认用户 `default`） |
+| **OpenCode WebUI**| `http://localhost:4096` | `4096` | OpenCode 内置开发者 Web 交互与控制界面 |
+
+* **默认连接密码**：`1234`（VNC 与 SSH 均适用，可在 `docker-compose.yml` 中修改）
 
 ---
 
 ## 快速开始
 
+### 1. 启动容器环境
+在宿主机项目根目录下执行：
 ```bash
-# 启动容器（前台看日志）
-docker compose up
-
-# 或后台启动
-docker compose up -d
-
-# 查看日志
-docker compose logs -f
-
-# 停止并清理
-docker compose down
-```
-
----
-
-## 访问方式
-
-| 服务 | 地址 | 说明 |
-|------|------|------|
-| VNC 客户端 | `vnc://localhost:5901` | 用 VNC Viewer 连接 |
-| noVNC 网页 | `http://localhost:6901` | 浏览器直接访问 |
-| SSH | `ssh default@localhost -p 2222` | 命令行远程登录 |
-
-默认密码：`1234`
-
----
-
-## 工作原理
-
-### 启动流程
-
-```
-docker compose up
-    │
-    ├─ 1. Docker 挂载 ./init.sh → 容器内 /dockerstartup/custom/init.sh
-    │
-    ├─ 2. 执行 entrypoint（覆盖镜像默认入口）
-    │      │
-    │      ├─ mkdir -p /dockerstartup/custom   ← 确保目录存在
-    │      │
-    │      ├─ /dockerstartup/custom/init.sh    ← 执行初始化脚本
-    │      │      │
-    │      │      ├─ 设置 root 密码
-    │      │      ├─ 创建 default 用户 & 设置密码 & 加入 sudo
-    │      │      ├─ 安装 openssh-server（如未安装）
-    │      │      ├─ 配置 SSH（允许密码登录、允许 root）
-    │      │      └─ 启动 SSH 服务
-    │      │
-    │      └─ exec /dockerstartup/vnc_startup.sh  ← 启动 VNC
-    │
-    └─ 3. 容器正常运行：VNC(5901) + noVNC(6901) + SSH(22)
-```
-
-### 为什么不使用 Dockerfile？
-
-| 方式 | 问题 |
-|------|------|
-| Dockerfile 定制 | 每处环境都需要重新 build，镜像版本不可控 |
-| init.sh 方式 | 同一份镜像到处跑，自定义逻辑在 `init.sh` 中按需修改 |
-
-你只需要维护 `docker-compose.yml` + `init.sh`，不需要管镜像构建。
-
----
-
-## init.sh 详解
-
-### 做了什么
-
-| 模块 | 功能 | 幂等 |
-|------|------|------|
-| `setup_users` | 设置 root 密码，创建 `default` 用户并加入 sudo | ✅ 检测用户存在则跳过 |
-| `setup_ssh` | 安装 openssh-server，生成密钥，配置 SSHD | ✅ 检测包/密钥存在则跳过 |
-
-幂等 = 容器重启时不会重复安装或报错，每次执行结果一致。
-
-### 怎么改
-
-`init.sh` 可自由扩展，例如：
-
-```bash
-# 在 setup_users 中加新用户
-useradd -m -s /bin/bash admin
-echo "admin:admin" | chpasswd
-
-# 安装软件
-apt-get install -y vim curl
-
-# 写配置文件
-echo "custom config" > /etc/myapp.conf
-```
-
-### 日志
-
-- **Docker 终端**：`docker compose logs` 即可看到 init.sh 的全部输出
-- **容器内日志文件**：`/dockerstartup/custom/init.log`
-  ```bash
-  docker exec debian-xfce-vnc cat /dockerstartup/custom/init.log
-  ```
-- 重启时日志追加（不覆盖）
-
----
-
-## 环境变量
-
-在 `docker-compose.yml` 的 `environment:` 中修改：
-
-| 变量 | 当前值 | 说明 |
-|------|--------|------|
-| `VNC_PW` | `1234` | VNC 连接密码 |
-| `VNC_RESOLUTION` | `1280x720` | 桌面分辨率 |
-| `TZ` | `Asia/Seoul` | 时区 |
-
-示例：
-```yaml
-environment:
-  - VNC_PW=mysecret
-  - VNC_RESOLUTION=1920x1080
-  - TZ=Asia/Shanghai
-```
-
----
-
-## docker-compose.yml 关键配置解析
-
-```yaml
-user: "0"
-```
-以 root 身份运行。原因：init.sh 需要执行 `useradd`、`chpasswd`、`apt-get` 等特权操作。
-
-```yaml
-entrypoint:
-  - /bin/bash
-  - -c
-  - |
-    mkdir -p /dockerstartup/custom
-    /dockerstartup/custom/init.sh && exec /dockerstartup/vnc_startup.sh "$$@"
-  - --
-```
-覆盖镜像默认入口。先执行 init.sh，成功后才启动 VNC；init.sh 失败则容器退出，便于排查。
-
-```yaml
-volumes:
-  - ./init.sh:/dockerstartup/custom/init.sh:ro
-```
-将宿主机的 `init.sh` 挂载到容器内，`:ro` 表示只读（容器内不能修改）。这样修改宿主机文件即可生效。
-
----
-
-## 端口映射
-
-| 容器端口 | 宿主机端口 | 用途 |
-|----------|------------|------|
-| 5901 | 5901 | VNC 协议（桌面连接） |
-| 6901 | 6901 | noVNC 网页客户端 |
-| 22 | 2222 | SSH |
-
-如需修改宿主机端口，编辑 `docker-compose.yml` 中 `ports:` 部分即可。
-
----
-
-## 常用命令
-
-```bash
-# 启动
+# 后台启动容器
 docker compose up -d
 
 # 查看实时日志
 docker compose logs -f
+```
 
-# 进入容器
-docker compose exec debian-xfce-vnc bash
+### 2. 交互式使用 (VNC / 网页端)
+* 访问 [http://localhost:6901](http://localhost:6901) 并输入密码 `1234` 即可进入 Debian 桌面环境。
+* 桌面上挂载的 `workspace` 即为宿主机当前目录下的 `./workspace`，实现开发源码与容器配置解耦。
 
-# 重启
+### 3. 配置 OpenCode 智能体环境
+进入容器终端（可通过桌面终端或 `ssh default@localhost -p 2222` 登录），依次运行以下步骤以激活全部智能能力：
+
+```bash
+cd /headless/Desktop/workspace
+
+# A. 连接远程 Ollama (以 100.102.149.107 为例) 并智能生成模型配置
+bash setup_opencode_ollama.sh
+
+# B. 安装 MCP 驱动（包括 mem0ai 记忆库、Playwright 浏览器等系统依赖）
+python3 setup_mcp.py
+
+# C. 安装 OpenCode 核心增强插件
+python3 setup_plugin.py
+
+# D. 导入 Agent 核心业务技能
+python3 setup_skill.py
+```
+
+---
+
+## 核心组件解析
+
+### 1. init.sh 引导脚本
+保持官方镜像的一致性，通过特权身份（`user: "0"`）在容器冷启动时按需运行：
+* **用户与权限**：自动设置 `root` 密码，并检测/创建带 `sudo` 权限的常用用户 `default`。
+* **SSH 模块**：自动安装并配置 `openssh-server`，修改 `sshd_config` 支持密码登录，生成主机密钥。
+* **OpenCode 安装**：自动从官网拉取并启动 OpenCode 服务（端口 `4096`）。
+* **新增系统依赖**：
+  * `python3` & `python3-pip`：提供 Python 3 解释器与 pip3 工具包。
+  * `python3-dev` & `build-essential`：提供 GCC 编译链及 Python 开发库，为 native/C++ 模块（如 `faiss` 检索库）编译提供支撑。
+  * `jq`：轻量级命令行 JSON 处理工具。
+
+### 2. workspace 工作区脚本
+
+#### 📝 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_mcp.py)
+配置 OpenCode 的 Model Context Protocol。
+* **依赖包名修正**：由于官方 PyPI 包名调整，脚本中已将 `mem0` 依赖更新为 **`mem0ai`**。
+* **Playwright 无头浏览器**：在 headless 容器中，Playwright 运行会缺失 Linux 图形底层组件。脚本使用 `playwright install --with-deps` 参数，能自动补充安装完备的系统级核心依赖包（如 `libgbm`、`libnss3`、`libasound`）。
+* **自检逻辑**：写入 `mcp.config.json` 后，会自动校验配置文件结构的完整性。
+
+#### 📝 [setup_opencode_ollama.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_opencode_ollama.sh)
+对接外部 Ollama 算力中心（默认配置：`100.102.149.107:11434`）。
+* **自动映射**：通过远程接口读取算力节点上已存在的所有模型。
+* **智能判定**：使用 Python 精准识别如推理（Reasoning）和工具链调用（Tool Call）等高阶特性，并自动适配上下文长度限制。
+* **热写入**：自动在本地写入或增量更新 `~/.config/opencode/opencode.json`，并一键热重启 OpenCode。
+
+#### 📝 [setup_plugin.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_plugin.py)
+批量执行插件安装，插件清单包括 `oh-my-opencode-slim`、`superpowers`、`opencode-pty`、`opencode-supermemory` 等 11 个模块，赋予 OpenCode 全面的终端控制、沙盒运行和内存控制能力。
+
+#### 📝 [setup_skill.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_skill.py)
+批量导入 `bestof`、`comparisons`、`studying` 等 10 项 Agent 业务技能包，支撑知识库体系的构建与问答。
+
+#### 📝 [restart_opencode.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/restart_opencode.sh)
+快速热重启 OpenCode 服务工具。通过优雅结束进程（`pkill -f`）再到强制杀死（`pkill -9`），最后以守护进程方式重新拉起 Web 服务，并将日志流向 `/dockerstartup/custom/opencode_web.log`。
+
+---
+
+## 常用命令备忘
+
+```bash
+# 宿主机上：重启整个开发环境容器
 docker compose restart
 
-# 停止并删除容器
-docker compose down
-
-# 完全重建（清除所有状态）
+# 宿主机上：完全重建容器并清空暂存状态
 docker compose down -v && docker compose up -d
+
+# 容器内部：查看 OpenCode 启动与访问日志
+tail -f /dockerstartup/custom/opencode_web.log
+
+# 容器内部：附着进入 OpenCode 的后台进程终端
+tmux attach -t opencode
 ```
 
 ---
 
 ## 问题排查
 
-| 现象 | 原因 | 解决 |
-|------|------|------|
-| 容器不断重启 | init.sh 执行失败 | `docker compose logs` 查看错误信息 |
-| init.sh 变更不生效 | 需要重建容器 | `docker compose down && docker compose up -d` |
-| noVNC 页面打不开 | 端口被占用 | 修改 ports 中的 6901 映射端口 |
-| SSH 连不上 | SSH 服务未启动 | 检查 init.sh 中 SSH 安装是否正常 |
-
----
-
-## 与官方镜像的关系
-
-| 项目 | 官方默认 | 本配置 |
-|------|----------|--------|
-| 运行时用户 | `default` (UID 1000) | `root`（通过 `user: "0"`） |
-| 入口脚本 | `vnc_startup.sh` | 先跑 `init.sh` → 再跑 `vnc_startup.sh` |
-| SSH | 无 | init.sh 自动安装并配置 |
-| 自定义用户 | 无 | `default` 用户带 sudo 权限 |
-| root 密码 | 无 | 初始化为 `1234` |
-
----
-
-## 许可证
-
-Apache-2.0 License
+| 现象 | 可能原因 | 解决方案 |
+| :--- | :--- | :--- |
+| **容器一直循环重启** | `init.sh` 中的组件执行失败。 | 运行 `docker compose logs` 查阅启动流的 stdout/stderr 日志。 |
+| **`setup_mcp.py` 报错找不到 pip3** | `init.sh` 执行时系统软件包更新尚未生效。 | 请确保 `init.sh` 中的 `setup_packages` 已成功跑完，或在容器中手动 `sudo apt-get update && sudo apt-get install -y python3-pip`。 |
+| **Playwright 报错无法启动 Chromium** | 操作系统底层缺失 X11/GL 等共享库依赖。 | 脚本中已更新 `--with-deps`。请重新运行 `python3 setup_mcp.py` 以触发系统级依赖补全。 |

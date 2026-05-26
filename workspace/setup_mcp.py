@@ -49,7 +49,7 @@ def write_config(mcp_config):
 # 模块 2：安装依赖
 # -------------------------------
 def install_dependencies():
-    pip_packages = ["mem0", "playwright", "faiss-cpu", "sqlite-utils"]
+    pip_packages = ["mem0ai", "playwright", "faiss-cpu", "sqlite-utils"]
     log_message("开始安装依赖...")
 
     for pkg in pip_packages:
@@ -62,8 +62,8 @@ def install_dependencies():
             log_message(f"安装 {pkg} 出错: {e}", "WARN")
 
     try:
-        result = subprocess.run(["playwright", "install"], check=True, capture_output=True)
-        log_message("Playwright 浏览器驱动已安装")
+        result = subprocess.run(["playwright", "install", "--with-deps"], check=True, capture_output=True)
+        log_message("Playwright 浏览器及系统依赖已安装")
     except subprocess.CalledProcessError as e:
         log_message(f"Playwright 驱动安装失败: {e.stderr.decode('utf-8', errors='ignore')}", "WARN")
     except Exception as e:
