@@ -41,25 +41,22 @@ echo "✓ 连接成功: ${OLLAMA_BASE_URL}"
 # ---------- 2. 获取模型列表 ----------
 echo ""
 echo "[2/5] 获取远程 Ollama 上安装的模型..."
-MODELS_JSON=$(curl -s --connect-timeout 10 "${OLLama_BASE_URL}/api/tags")
+MODELS_JSON=$(curl -s --connect-timeout 10 "${OLLAMA_BASE_URL}/api/tags")
+# 验证返回是否为有效 JSON（避免空或非 JSON 响应导致 json.loads 崩溃）
 if [ -z "$MODELS_JSON" ]; then
-  echo "✗ 无法获取模型列表"
+  echo "✗ 无法获取模型列表（空响应）"
+  exit 1
+fi
+if ! echo "$MODELS_JSON" | jq . > /dev/null 2>&1; then
+  echo "✗ Ollama 返回非 JSON 数据，可能是网络错误或服务异常"
   exit 1
 fi
 
 # 解析模型名称（完整名称包含标签）
-MODEL_NAMES=$(printf '%s' "$MODELS_JSON" | python3 - <<'PYEOF'
-import json, sys
-data = json.load(sys.stdin)
-for m in data.get('models', []):
-    name = m.get('name', '')
-    if name:
-        print(name)
-PYEOF
-)
+MODEL_NAMES=$(echo "$MODELS_JSON" | jq -r '.models[].name')
 
 if [ -z "$MODEL_NAMES" ]; then
-  echo "✗ 远程 Ollama 上没有安装任何模型"
+  echo "✗ 远程 Ollama 上没有检测到任何模型（解析结果为空）"
   exit 1
 fi
 

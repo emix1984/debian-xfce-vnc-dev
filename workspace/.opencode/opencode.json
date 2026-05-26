@@ -11,6 +11,7 @@
     "opencode-type-inject",
     "opencode-browser",
     "opencode-arise",
-    "opencode-token-monitor"
+    "opencode-token-monitor",
+    "list"
   ]
 }

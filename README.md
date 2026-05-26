@@ -102,7 +102,7 @@ python3 setup_skill.py
 * **热写入**：自动在本地写入或增量更新 `~/.config/opencode/opencode.json`，并一键热重启 OpenCode。
 
 #### 📝 [setup_plugin.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_plugin.py)
-批量执行插件安装，插件清单包括 `oh-my-opencode-slim`、`superpowers`、`opencode-pty`、`opencode-supermemory` 等 11 个模块，赋予 OpenCode 全面的终端控制、沙盒运行和内存控制能力。
+批量执行 OpenCode 插件安装。脚本会写入 `plugins.json`，并在写入前过滤掉非字符串或空值，防止出现意外的 "list" 占位符；自检阶段若检测到异常结构（如出现 "list"），会自动修复并重新写回合法插件列表。当前默认插件清单包括 `oh-my-opencode-slim`、`superpowers`、`opencode-pty`、`opencode-supermemory` 等 11 个模块，赋予 OpenCode 终端控制、沙盒运行和内存管理等能力。
 
 #### 📝 [setup_skill.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_skill.py)
 批量导入 `bestof`、`comparisons`、`studying` 等 10 项 Agent 业务技能包，支撑知识库体系的构建与问答。

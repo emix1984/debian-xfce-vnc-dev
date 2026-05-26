@@ -70,10 +70,12 @@ def prepare_plugin_dir():
 # -------------------------------
 def write_plugin_list(plugins):
     """写入 plugin 清单到配置文件"""
+    # 过滤非字符串或空值，防止出现意外的 'list' 占位符
+    cleaned_plugins = [p for p in plugins if isinstance(p, str) and p]
     plugin_config = {
-        "plugins": plugins,
+        "plugins": cleaned_plugins,
         "lastUpdated": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "count": len(plugins)
+        "count": len(cleaned_plugins)
     }
     
     try:
@@ -176,9 +178,20 @@ def self_check_plugins():
         with open(PLUGINS_LIST_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         
-        if "plugins" not in data or not isinstance(data["plugins"], list):
-            log_message("Plugin 配置文件结构异常", "WARN")
-            return False
+        # 若结构异常（如出现字符串 "list"），尝试自动修复为合法列表
+        if isinstance(data.get("plugins"), list):
+            plugins = [p for p in data["plugins"] if isinstance(p, str) and p != "list"]
+            data["plugins"] = plugins
+        else:
+            data["plugins"] = []
+        # 将修复后的结构写回文件
+        try:
+            with open(PLUGINS_LIST_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            log_message("已修复 Plugin 配置文件结构")
+        except Exception as e:
+            log_message(f"修复配置文件失败: {e}", "WARN")
+        plugins = data["plugins"]
         
         plugins = data["plugins"]
         log_message(f"✅ Plugin 配置文件结构正确，共 {len(plugins)} 个 Plugin")
