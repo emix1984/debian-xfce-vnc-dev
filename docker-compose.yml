@@ -19,6 +19,7 @@ services:
       - TZ=Asia/Seoul
       - VNC_RESOLUTION=1280x720
       - VNC_PW=1234
+      - OLLAMA_HOST=http://100.102.149.107:11434
     volumes:
       - ./init.sh:/dockerstartup/custom/init.sh:ro
       - ./workspace:/headless/Desktop/workspace    # 将专用的 workspace 目录挂载到桌面，实现管理文件与源码隔离

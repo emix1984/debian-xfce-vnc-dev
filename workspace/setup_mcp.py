@@ -70,6 +70,23 @@ def install_dependencies():
         log_message(f"Playwright 安装出错: {e}", "WARN")
 
 # -------------------------------
+def get_opencode_bin():
+    """获取 opencode 可执行文件的路径，如果全局命令不在 PATH 中，则回退到绝对路径"""
+    try:
+        result = subprocess.run(["which", "opencode"], capture_output=True)
+        if result.returncode == 0:
+            return "opencode"
+    except Exception:
+        pass
+    
+    actual_home = os.environ.get("ACTUAL_HOME", "/headless")
+    default_bin = os.path.join(actual_home, ".opencode", "bin", "opencode")
+    if os.path.exists(default_bin):
+        return default_bin
+        
+    return "opencode"
+
+# -------------------------------
 # 模块 3：重启 WebUI
 # -------------------------------
 def restart_webui():
@@ -86,7 +103,7 @@ def restart_webui():
     except Exception as e:
         log_message(f"停止进程时出错: {e}", "WARN")
     
-    # 强制杀死仍然运行的进程
+    # 强制杀死仍然运行 of 进程
     try:
         subprocess.run(["pkill", "-9", "-f", "opencode web"], capture_output=True)
     except Exception:
@@ -95,8 +112,9 @@ def restart_webui():
     time.sleep(1)
     
     # 启动新实例
+    opencode_bin = get_opencode_bin()
     try:
-        cmd = f"nohup opencode web --hostname 0.0.0.0 --port {OPENCODE_PORT} >> {LOG_FILE_WEBUI} 2>&1 &"
+        cmd = f"nohup {opencode_bin} web --hostname 0.0.0.0 --port {OPENCODE_PORT} >> {LOG_FILE_WEBUI} 2>&1 &"
         subprocess.Popen(cmd, shell=True)
         log_message(f"已启动 OpenCode WebUI (PID 在后台运行)")
     except Exception as e:
@@ -186,7 +204,7 @@ def main():
             "mem0": {"storage": "sqlite:///mem0.db"},
             "browser": {"engine": "playwright", "headless": True},
             "local_embedding": {"storage": "faiss_index"},
-            "local_llm": {"engine": "ollama", "model": "llama3"},
+            "local_llm": {"engine": "ollama", "model": "qwen2.5-coder:32b"},
             "filesystem": {"root_path": "/headless/Desktop/workspace"},
             "shell": {"safe_mode": True},
             "pdf_parser": {"storage": "parsed_docs"},

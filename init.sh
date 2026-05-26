@@ -178,17 +178,17 @@ setup_opencode() {
   # 不再对整个 ${LOG_DIR} 执行 chown -R，因为 init.sh 是只读挂载的，会报错
   # 如果需要可以只 chown log 文件： chown root:root "${LOG_DIR}/opencode_web.log" || true
 
-  # 使用 tmux 在 root 下启动 opencode web
+  # 使用 nohup 启动 opencode web 并在后台运行
   if ! command -v opencode >/dev/null 2>&1; then
-    echo "[WARN] opencode not found in PATH for root; skipping start."
+    echo "[WARN] opencode not found in PATH; skipping start."
     return 0
   fi
 
-  if tmux has-session -t opencode >/dev/null 2>&1; then
-    echo "[INFO] OpenCode tmux session already exists."
+  if pgrep -f "opencode web" >/dev/null 2>&1; then
+    echo "[INFO] OpenCode Web UI is already running."
   else
-    nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
-    echo "[INFO] OpenCode Web UI started with nohup as root."
+    nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
+    echo "[INFO] OpenCode Web UI started with nohup in background."
   fi
 }
 

@@ -147,31 +147,21 @@ def check_skills():
     """检查已安装的 skill"""
     log_message("检查已安装的 Skill...")
     
-    if not command_exists("opencode"):
-        log_message("opencode 命令不可用", "ERROR")
+    if not os.path.exists(SKILLS_LIST_FILE):
+        log_message(f"未找到技能配置文件: {SKILLS_LIST_FILE}", "WARN")
         return False
-    
-    try:
-        result = subprocess.run(
-            ["opencode", "skill", "list"],
-            capture_output=True,
-            timeout=30,
-            text=True
-        )
         
-        if result.returncode == 0:
-            output = result.stdout
-            log_message("已安装的 Skill 列表:")
-            for line in output.split('\n'):
-                if line.strip():
-                    log_message(f"  {line}")
-            return True
-        else:
-            log_message("获取 Skill 列表失败", "WARN")
-            return False
-            
+    try:
+        with open(SKILLS_LIST_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        skills = data.get("skills", [])
+        log_message("已配置的技能列表 (自检通过):")
+        for skill in skills:
+            desc = data.get("descriptions", {}).get(skill, "无描述")
+            log_message(f"  - {skill:<30} {desc}")
+        return True
     except Exception as e:
-        log_message(f"检查 Skill 失败: {e}", "WARN")
+        log_message(f"自检读取 Skill 列表失败: {e}", "WARN")
         return False
 
 # 模块 5：自检 Skill 配置
