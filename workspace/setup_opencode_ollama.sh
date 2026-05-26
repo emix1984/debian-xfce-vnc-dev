@@ -84,15 +84,17 @@ except Exception as e:
     print(f"✗ 读取 Ollama 模型信息失败: {e}")
     sys.exit(1)
 model_list = []
+whitelist = ['qwen3-coder:30b', 'mixtral:8x7b']
 for m in data.get('models', []):
     name = m.get('name', '')
-    details = m.get('details', {})
-    model_list.append({
-        'name': name,
-        'family': details.get('family', ''),
-        'param_size': details.get('parameter_size', ''),
-        'quantization': details.get('quantization_level', ''),
-    })
+    if name in whitelist:
+        model_list.append({
+            'name': name,
+            'family': m.get('details', {}).get('family', ''),
+            'param_size': m.get('details', {}).get('parameter_size', ''),
+            'quantization': m.get('details', {}).get('quantization_level', ''),
+        })
+
 # 加载已有配置（如果有）
 config = {}
 if os.path.exists(config_path):
@@ -159,7 +161,7 @@ config.setdefault('provider', {})['ollama-remote'] = {
 }
 # 设置默认模型（优先 qwen3-coder，其次 qwen2.5-coder）
 default_key = None
-for cand in ['qwen3_coder', 'qwen2_5_coder']:
+for cand in ['qwen3-coder', 'mixtral']:
     if cand in models:
         default_key = cand
         break

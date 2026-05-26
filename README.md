@@ -96,6 +96,22 @@ python3 setup_skill.py
 * **自检逻辑**：写入 `mcp.config.json` 后，会自动校验配置文件结构的完整性。
 
 #### 📝 [setup_opencode_ollama.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/workspace/setup_opencode_ollama.sh)
+此脚本用于将 OpenCode 与远程 **Ollama** 大模型服务对接，并自动生成 `opencode.json` 配置。
+
+- **连接信息**：`OLLAMA_HOST="100.102.149.107"`、`OLLAMA_PORT="11434"`（已写死在脚本顶部），对应远程 Ollama 实例。
+- **模型过滤**：脚本现在仅会导入白名单中的两款模型：
+  - `qwen3-coder:30b`
+  - `mixtral:8x7b`
+  通过 `whitelist` 变量实现，未在列表中的模型会被忽略。
+- **默认模型**：在 `config['model']` 中自动选择 `qwen3-coder`（若存在）否则 `mixtral` 作为默认模型。
+- **关键步骤**：
+  1. 检测 `curl`、`jq`、`python3` 可用。
+  2. 调用 Ollama `/api/tags` 获取模型列表并过滤白名单。
+  3. 使用 Python 生成 OpenCode Provider 配置（`ollama-remote`），写入 `~/.config/opencode/opencode.json`。
+  4. 验证配置文件是否生成。
+
+> 此设计保证在多模型环境下，仅保留用户关心的模型，避免 `list` 占位符或无关模型污染配置。
+
 对接外部 Ollama 算力中心（默认配置：`100.102.149.107:11434`）。
 * **自动映射**：通过远程接口读取算力节点上已存在的所有模型。
 * **智能判定**：使用 Python 精准识别如推理（Reasoning）和工具链调用（Tool Call）等高阶特性，并自动适配上下文长度限制。
