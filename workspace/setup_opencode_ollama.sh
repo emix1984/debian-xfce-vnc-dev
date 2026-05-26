@@ -17,7 +17,12 @@ done
 OLLAMA_HOST="100.102.149.107"
 OLLAMA_PORT="11434"
 OLLAMA_BASE_URL="http://${OLLAMA_HOST}:${OLLAMA_PORT}"
-OPENCODE_CONFIG_DIR="$HOME/.config/opencode"
+ACTUAL_HOME="${ACTUAL_HOME:-${HOME:-/root}}"
+# 容器内 OpenCode 运行默认用户目录是 /headless
+if [ "${ACTUAL_HOME}" = "/root" ] && [ -d /headless ]; then
+  ACTUAL_HOME="/headless"
+fi
+OPENCODE_CONFIG_DIR="${OPENCODE_CONFIG_DIR:-${ACTUAL_HOME}/.config/opencode}"
 OPENCODE_CONFIG="$OPENCODE_CONFIG_DIR/opencode.json"
 
 echo "========================================="
@@ -84,16 +89,15 @@ except Exception as e:
     print(f"✗ 读取 Ollama 模型信息失败: {e}")
     sys.exit(1)
 model_list = []
-whitelist = ['qwen3-coder:30b', 'mixtral:8x7b']
 for m in data.get('models', []):
     name = m.get('name', '')
-    if name in whitelist:
-        model_list.append({
-            'name': name,
-            'family': m.get('details', {}).get('family', ''),
-            'param_size': m.get('details', {}).get('parameter_size', ''),
-            'quantization': m.get('details', {}).get('quantization_level', ''),
-        })
+    # Keep all models returned by Ollama
+    model_list.append({
+        'name': name,
+        'family': m.get('details', {}).get('family', ''),
+        'param_size': m.get('details', {}).get('parameter_size', ''),
+        'quantization': m.get('details', {}).get('quantization_level', ''),
+    })
 
 # 加载已有配置（如果有）
 config = {}
@@ -107,14 +111,13 @@ if os.path.exists(config_path):
         print(f"  警告: 读取现有配置失败 ({e})，将重新创建配置")
 if '$schema' not in config:
     config['$schema'] = 'https://opencode.ai/config.json'
-# 构建模型映射，保留原始名称（去除标签）作为 key，允许 '-' '.'
+# 构建模型映射，保留完整模型名称作为 key
 models = {}
 for mdl in model_list:
     name = mdl['name']
-    # 去掉冒号后面的标签（如 :latest）
-    key = re.sub(r":.+$", "", name)
-    # 将非法字符统一替换为下划线，保留字母数字、点、横杠
-    key = re.sub(r"[^0-9A-Za-z_.-]+", "_", key)
+    key = name
+    # 允许保留模型名称中的标签，如 qwen3-coder:30b
+    key = re.sub(r"[^0-9A-Za-z_.:-]+", "_", key)
     key = key.strip('_').lower()
     if not key:
         key = 'model'
@@ -159,12 +162,17 @@ config.setdefault('provider', {})['ollama-remote'] = {
     'options': {'baseURL': base_url},
     'models': models,
 }
-# 设置默认模型（优先 qwen3-coder，其次 qwen2.5-coder）
+# 设置默认模型（优先 qwen3-coder）
 default_key = None
-for cand in ['qwen3-coder', 'mixtral']:
-    if cand in models:
-        default_key = cand
+preferred = ['qwen3-coder', 'mixtral']
+for cand in preferred:
+    for k in models:
+        if k.startswith(cand):
+            default_key = k
+            break
+    if default_key:
         break
+# 若不存在首选模型，则使用第一个可用模型
 if not default_key and models:
     default_key = next(iter(models))
 if default_key:

@@ -2,16 +2,13 @@
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
     "oh-my-opencode-slim",
-    "superpowers",
+    "superpowers@git+https://github.com/obra/superpowers.git",
     "opencode-pty",
     "opencode-supermemory",
     "@morphllm/opencode-morph-plugin",
     "opencode-agent-skills",
-    "opencode-worktree",
-    "opencode-type-inject",
     "opencode-browser",
     "opencode-arise",
-    "opencode-token-monitor",
-    "list"
+    "opencode-token-monitor"
   ]
 }
