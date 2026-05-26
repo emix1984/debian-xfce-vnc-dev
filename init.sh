@@ -20,9 +20,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# =====================================
+# OpenCode 路径配置 - 在 consol/debian-xfce-vnc 容器中
+# =====================================
+# consol/debian-xfce-vnc 容器中 root 用户的 HOME 是 /headless
+export ACTUAL_HOME="${ACTUAL_HOME:-/headless}"
+export OPENCODE_HOME="${OPENCODE_HOME:-${ACTUAL_HOME}/.opencode}"
+export OPENCODE_CONFIG_DIR="${OPENCODE_CONFIG_DIR:-${ACTUAL_HOME}/.config/opencode}"
+export OPENCODE_PLUGINS_DIR="${OPENCODE_HOME}/plugins"
+export OPENCODE_BIN="${OPENCODE_HOME}/bin/opencode"
+
 echo "========================================"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] init.sh START"
 echo "========================================"
+echo "[INFO] Container environment: ACTUAL_HOME=${ACTUAL_HOME}, OPENCODE_HOME=${OPENCODE_HOME}"
 
 apt_install() {
   local pkgs=("$@")
@@ -148,9 +159,6 @@ setup_opencode() {
   echo ""
   echo "--- [setup_opencode] ---"
 
-  # OpenCode 将会被安装到当前用户的 HOME 目录（在此镜像中 root 的 HOME 往往是 /headless）
-  OPENCODE_BIN="${HOME}/.opencode/bin/opencode"
-
   if [ ! -x "${OPENCODE_BIN}" ]; then
     echo "[INFO] Installing OpenCode as root..."
     curl -fsSL https://opencode.ai/install | bash || echo "[WARN] OpenCode install script returned non-zero"
@@ -160,7 +168,7 @@ setup_opencode() {
   fi
 
   # 确保 PATH 包含 opencode
-  export PATH="${HOME}/.opencode/bin:${PATH}"
+  export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
   # 不再对整个 ${LOG_DIR} 执行 chown -R，因为 init.sh 是只读挂载的，会报错
   # 如果需要可以只 chown log 文件： chown root:root "${LOG_DIR}/opencode_web.log" || true
@@ -174,8 +182,8 @@ setup_opencode() {
   if tmux has-session -t opencode >/dev/null 2>&1; then
     echo "[INFO] OpenCode tmux session already exists."
   else
-    tmux new-session -d -s opencode "opencode web --hostname 0.0.0.0 --port 4096 2>&1 | tee ${LOG_DIR}/opencode_web.log"
-    echo "[INFO] OpenCode Web UI started in tmux session 'opencode' as root."
+    nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
+    echo "[INFO] OpenCode Web UI started with nohup as root."
   fi
 }
 
