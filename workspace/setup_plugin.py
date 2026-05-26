@@ -120,19 +120,19 @@ def install_plugins(plugins):
                 text=True,
             )
             if result.returncode == 0:
-                log(f"  ✅ {plugin} 安装成功")
+                log(f"  [OK] {plugin} 安装成功")
                 installed.append(plugin)
             else:
                 err = (result.stderr or result.stdout or "").strip()
                 # 只取错误信息的第一行，避免输出过长
                 first_line = err.split("\n")[0] if err else "未知错误"
-                log(f"  ⚠️ {plugin} 安装失败: {first_line}", "WARN")
+                log(f"  [WARN] {plugin} 安装失败: {first_line}", "WARN")
                 failed.append(plugin)
         except subprocess.TimeoutExpired:
-            log(f"  ⚠️ {plugin} 安装超时 (120s)", "WARN")
+            log(f"  [WARN] {plugin} 安装超时 (120s)", "WARN")
             failed.append(plugin)
         except Exception as e:
-            log(f"  ⚠️ {plugin} 安装出错: {e}", "WARN")
+            log(f"  [WARN] {plugin} 安装出错: {e}", "WARN")
             failed.append(plugin)
 
         time.sleep(1)
@@ -170,13 +170,13 @@ def self_check():
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         plugins = data["plugins"]
-        log(f"✅ Plugin 配置文件结构正确，共 {len(plugins)} 个 Plugin")
+        log(f"[OK] Plugin 配置文件结构正确，共 {len(plugins)} 个 Plugin")
         if plugins:
             log(f"Plugin 清单 (最后更新: {data.get('lastUpdated', 'N/A')}):")
             for p in plugins:
                 log(f"  - {p}")
         else:
-            log("⚠️ 配置中没有任何 Plugin", "WARN")
+            log("[WARN] 配置中没有任何 Plugin", "WARN")
 
         return True
 
@@ -212,7 +212,7 @@ def restart_webui(restart=False):
     try:
         cmd = f"nohup opencode web --hostname 0.0.0.0 --port {port} >> {webui_log} 2>&1 &"
         subprocess.Popen(cmd, shell=True)
-        log(f"✅ OpenCode WebUI 已重启 (端口 {port})")
+        log(f"[OK] OpenCode WebUI 已重启 (端口 {port})")
     except Exception as e:
         log(f"启动 OpenCode WebUI 失败: {e}", "ERROR")
 
@@ -238,7 +238,7 @@ def main():
 
     # 4. 检查 OpenCode 是否已安装
     if not command_exists("opencode"):
-        log("⚠️ OpenCode 未安装，跳过 Plugin 安装步骤", "WARN")
+        log("[WARN] OpenCode 未安装，跳过 Plugin 安装步骤", "WARN")
         log("请先运行 init.sh 或手动安装 OpenCode")
     else:
         # 5. 安装 Plugin

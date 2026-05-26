@@ -18,13 +18,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
-from logging.handlers import RotatingFileHandler
 from typing import Dict, Any
 
 # ---------------------------------------------------------------------------
@@ -34,25 +32,23 @@ LOG_DIR = Path(os.getenv("LOG_DIR", "/dockerstartup/custom"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "setup_mcp.log"
 
-logger = logging.getLogger("setup_mcp")
-logger.setLevel(logging.INFO)
-handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
-formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
-def log_message(msg: str, level: int = logging.INFO) -> None:
-    """Write a message to both stdout and the rotating log file.
+def log_message(msg: str, level: str = "INFO") -> None:
+    """Write a message to both stdout and the log file.
 
     Parameters
     ----------
     msg: str
-        Human‑readable log message.
-    level: int, optional
-        ``logging`` level (INFO, WARNING, ERROR…). Default is INFO.
+        Human-readable log message.
+    level: str, optional
+        Log level name. Default is INFO.
     """
-    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{logging.getLevelName(level)}] {msg}")
-    logger.log(level, msg)
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {msg}"
+    print(line)
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
 
 # ---------------------------------------------------------------------------
 # Path helpers – they honour the environment variables used by the original script.
@@ -119,7 +115,7 @@ def write_config(mcp_config: Dict[str, Any], output_path: Path) -> Path:
             json.dump(mcp_config, f, indent=2, ensure_ascii=False)
         log_message(f"MCP configuration written to {output_path}")
     except Exception as exc:
-        log_message(f"Failed to write MCP config: {exc}", logging.ERROR)
+        log_message(f"Failed to write MCP config: {exc}", "ERROR")
         sys.exit(1)
     return output_path
 
@@ -134,11 +130,11 @@ def run(command: list[str], description: str) -> None:
     log_message(f"Installing: {description}")
     try:
         result = subprocess.run(command, check=True, capture_output=True, text=True)
-        log_message(f"✅ {description} installed", logging.INFO)
+        log_message(f"[OK] {description} installed", "INFO")
     except subprocess.CalledProcessError as err:
         log_message(
-            f"❌ {description} failed – exit {err.returncode}\nSTDERR: {err.stderr.strip()}",
-            logging.ERROR,
+            f"[ERROR] {description} failed – exit {err.returncode}\nSTDERR: {err.stderr.strip()}",
+            "ERROR",
         )
         sys.exit(1)
 
@@ -182,7 +178,7 @@ def restart_webui(port: int = 4096) -> None:
     bin_path = get_opencode_bin()
     cmd = f"nohup {bin_path} web --hostname 0.0.0.0 --port {port} >> {log_path} 2>&1 &"
     subprocess.Popen(cmd, shell=True)
-    log_message("✅ OpenCode WebUI launched in background")
+    log_message("[OK] OpenCode WebUI launched in background")
 
 # ---------------------------------------------------------------------------
 # Step 4 – Verify the WebUI is reachable
@@ -198,14 +194,14 @@ def check_webui(port: int = 4096, retries: int = 10, interval: int = 3) -> bool:
                 timeout=10,
             )
             if result.returncode == 0:
-                log_message(f"✅ WebUI reachable at {url}")
+                log_message(f"[OK] WebUI reachable at {url}")
                 return True
         except Exception:
             pass
         if attempt < retries:
             log_message(f"Attempt {attempt}/{retries} failed – retrying in {interval}s…")
             time.sleep(interval)
-    log_message("❌ WebUI did not become reachable – see opencode_web.log for details", logging.WARNING)
+    log_message("[ERROR] WebUI did not become reachable – see opencode_web.log for details", "WARNING")
     return False
 
 # ---------------------------------------------------------------------------
@@ -214,19 +210,19 @@ def check_webui(port: int = 4096, retries: int = 10, interval: int = 3) -> bool:
 def self_check(config_path: Path) -> bool:
     log_message("Running self‑check on the generated MCP config…")
     if not config_path.is_file():
-        log_message(f"Configuration file missing: {config_path}", logging.ERROR)
+        log_message(f"Configuration file missing: {config_path}", "ERROR")
         return False
     try:
         with config_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as exc:
-        log_message(f"JSON decode error: {exc}", logging.ERROR)
+        log_message(f"JSON decode error: {exc}", "ERROR")
         return False
     if "mcp" not in data or not isinstance(data["mcp"], dict):
-        log_message("Invalid MCP structure – 'mcp' key missing or not a dict", logging.WARNING)
+        log_message("Invalid MCP structure – 'mcp' key missing or not a dict", "WARNING")
         return False
     modules = list(data["mcp"].keys())
-    log_message(f"✅ Detected {len(modules)} MCP modules: {', '.join(modules)}")
+    log_message(f"[OK] Detected {len(modules)} MCP modules: {', '.join(modules)}")
     return True
 
 # ---------------------------------------------------------------------------
@@ -255,7 +251,7 @@ def main() -> None:
     config_file = write_config(config, args.output)
 
     if not self_check(config_file):
-        log_message("Self‑check failed – aborting", logging.ERROR)
+        log_message("Self‑check failed – aborting", "ERROR")
         sys.exit(1)
 
     if args.dry_run:
@@ -265,7 +261,7 @@ def main() -> None:
     install_dependencies()
     restart_webui()
     if not check_webui():
-        log_message("WebUI health‑check failed – please review the logs.", logging.ERROR)
+        log_message("WebUI health‑check failed – please review the logs.", "ERROR")
         sys.exit(1)
 
     log_message("=" * 50)

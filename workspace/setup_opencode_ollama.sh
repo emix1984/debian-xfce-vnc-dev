@@ -8,7 +8,7 @@ set -euo pipefail
 # ---------- 依赖检查 ----------
 for cmd in curl jq python3; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "✗ 缺少必需命令: $cmd，请先在容器中安装 (apt-get update && apt-get install -y $cmd)"
+    echo "[ERROR] 缺少必需命令: $cmd，请先在容器中安装 (apt-get update && apt-get install -y $cmd)"
     exit 1
   fi
 done
@@ -34,14 +34,14 @@ echo ""
 echo "[1/5] 测试远程 Ollama 连接..."
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "${OLLAMA_BASE_URL}/api/tags" || echo "000")
 if [ "$HTTP_STATUS" != "200" ]; then
-  echo "✗ 无法连接到远程 Ollama: ${OLLAMA_BASE_URL} (HTTP $HTTP_STATUS)"
+  echo "[ERROR] 无法连接到远程 Ollama: ${OLLAMA_BASE_URL} (HTTP $HTTP_STATUS)"
   echo "  请检查:"
   echo "    1. 远程机器是否运行 Ollama 服务"
   echo "    2. Ollama 是否监听 0.0.0.0（OLLAMA_HOST=0.0.0.0）"
   echo "    3. 防火墙是否放行 ${OLLAMA_PORT} 端口"
   exit 1
 fi
-echo "✓ 连接成功: ${OLLAMA_BASE_URL}"
+echo "[OK] 连接成功: ${OLLAMA_BASE_URL}"
 
 # ---------- 2. 获取模型列表 ----------
 echo ""
@@ -49,11 +49,11 @@ echo "[2/5] 获取远程 Ollama 上安装的模型..."
 MODELS_JSON=$(curl -s --connect-timeout 10 "${OLLAMA_BASE_URL}/api/tags")
 # 验证返回是否为有效 JSON（避免空或非 JSON 响应导致 json.loads 崩溃）
 if [ -z "$MODELS_JSON" ]; then
-  echo "✗ 无法获取模型列表（空响应）"
+  echo "[ERROR] 无法获取模型列表（空响应）"
   exit 1
 fi
 if ! echo "$MODELS_JSON" | jq . > /dev/null 2>&1; then
-  echo "✗ Ollama 返回非 JSON 数据，可能是网络错误或服务异常"
+  echo "[ERROR] Ollama 返回非 JSON 数据，可能是网络错误或服务异常"
   exit 1
 fi
 
@@ -61,12 +61,12 @@ fi
 MODEL_NAMES=$(echo "$MODELS_JSON" | jq -r '.models[].name')
 
 if [ -z "$MODEL_NAMES" ]; then
-  echo "✗ 远程 Ollama 上没有检测到任何模型（解析结果为空）"
+  echo "[ERROR] 远程 Ollama 上没有检测到任何模型（解析结果为空）"
   exit 1
 fi
 
 MODEL_COUNT=$(echo "$MODEL_NAMES" | wc -l)
-echo "✓ 发现 ${MODEL_COUNT} 个模型:"
+echo "[OK] 发现 ${MODEL_COUNT} 个模型:"
 while IFS= read -r m; do
   echo "  - $m"
 done <<< "$MODEL_NAMES"
@@ -86,7 +86,7 @@ raw = result.stdout
 try:
     data = json.loads(raw)
 except Exception as e:
-    print(f"✗ 读取 Ollama 模型信息失败: {e}")
+    print(f"[ERROR] 读取 Ollama 模型信息失败: {e}")
     sys.exit(1)
 model_list = []
 for m in data.get('models', []):
@@ -195,9 +195,9 @@ PYEOF
 echo ""
 echo "[4/5] 验证配置..."
 if [ -f "$OPENCODE_CONFIG" ]; then
-  echo "✓ 配置文件已生成: $OPENCODE_CONFIG"
+  echo "[OK] 配置文件已生成: $OPENCODE_CONFIG"
 else
-  echo "✗ 配置文件未生成，请检查脚本执行日志"
+  echo "[ERROR] 配置文件未生成，请检查脚本执行日志"
   exit 1
 fi
 

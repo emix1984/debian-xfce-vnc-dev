@@ -133,10 +133,10 @@ def self_check():
             return False
 
         skills = data["skills"]
-        log(f"✅ Skill 配置文件结构正确，共 {len(skills)} 个 Skill")
+        log(f"[OK] Skill 配置文件结构正确，共 {len(skills)} 个 Skill")
 
         if not skills:
-            log("⚠️ 配置中没有任何 Skill", "WARN")
+            log("[WARN] 配置中没有任何 Skill", "WARN")
         else:
             log(f"Skill 清单 (最后更新: {data.get('lastUpdated', 'N/A')}):")
             for s in skills:
@@ -175,7 +175,7 @@ def restart_webui(restart=False):
     try:
         cmd = f"nohup opencode web --hostname 0.0.0.0 --port {port} >> {webui_log} 2>&1 &"
         subprocess.Popen(cmd, shell=True)
-        log(f"✅ OpenCode WebUI 已重启 (端口 {port})")
+        log(f"[OK] OpenCode WebUI 已重启 (端口 {port})")
     except Exception as e:
         log(f"启动 OpenCode WebUI 失败: {e}", "ERROR")
 
@@ -203,9 +203,9 @@ def main():
     #    opencode CLI 没有 skill 子命令，所以无法通过命令行安装 Skill
     #    Skill 配置文件已写入，OpenCode 启动后会自动加载
     if command_exists("opencode"):
-        log("✅ OpenCode 已安装，Skill 配置将在 OpenCode 启动后自动加载")
+        log("[OK] OpenCode 已安装，Skill 配置将在 OpenCode 启动后自动加载")
     else:
-        log("⚠️ OpenCode 未安装，请先运行 init.sh 安装 OpenCode", "WARN")
+        log("[WARN] OpenCode 未安装，请先运行 init.sh 安装 OpenCode", "WARN")
 
     # 5. 可选：重启 WebUI（默认不重启）
     restart_webui(restart=False)
