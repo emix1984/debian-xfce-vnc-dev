@@ -54,32 +54,50 @@ def command_exists(cmd):
         return False
 
 
-# Skill 清单
+# 优化后的 Skill 清单 (精简至 12 个核心技能，按领域分组)
 SKILLS = [
-    "bestof",
-    "comparisons",
-    "studying",
+    # --- 开发与架构类 ---
+    "karpathy-guidelines",
+    "fullstack-agent-suite",
+    "frontend-artifacts-builder",
+    
+    # --- 审查与测试类 ---
+    "code-review-workflow",
+    "code-review-graph",
+    "webapp-testing",
+    
+    # --- 学习与评估类 ---
+    "learning-and-research",
+    "practice-assessment",
     "flashcards",
-    "practice-test",
-    "generate-quiz",
+    
+    # --- 商业调研与分析类 ---
+    "industry-case-analysis",
+    "market-comparison",
     "shopping-savings",
-    "genui",
-    "practice-test-orchestrator",
-    "insert-backstory",
 ]
 
-# Skill 描述映射
+# 优化后的 Skill 描述映射
 SKILL_DESCRIPTIONS = {
-    "bestof": "查找最佳实践与推荐",
-    "comparisons": "对比不同市场或产品",
-    "studying": "系统化学习与总结",
-    "flashcards": "制作调研知识卡片",
-    "practice-test": "测试调研知识掌握情况",
-    "generate-quiz": "生成调研相关的练习题",
-    "shopping-savings": "价格与市场优惠趋势分析",
-    "genui": "行业案例研究与分析",
-    "practice-test-orchestrator": "更复杂的测试与知识掌握情况",
-    "insert-backstory": "背景研究与资料补充",
+    # 开发与架构类
+    "karpathy-guidelines": "Karpathy 编程思维与规范",
+    "fullstack-agent-suite": "综合全栈开发技能套件 (涵盖前后端 API 构建、容器化部署与服务器配置)",
+    "frontend-artifacts-builder": "生成复杂 HTML 构件与生产级前端 UI 设计",
+    
+    # 审查与测试类
+    "code-review-workflow": "跨语言 (包含 Python/HTML 等) 的代码、安全与架构设计审查工作流",
+    "code-review-graph": "代码知识图谱与项目结构分析",
+    "webapp-testing": "Playwright 前端与自动化测试",
+    
+    # 学习与评估类
+    "learning-and-research": "系统化学习、背景资料提取与深度调研总结",
+    "practice-assessment": "生成练习题并执行从基础到复杂的知识掌握情况综合评估",
+    "flashcards": "提取核心概念，制作调研与学习知识卡片",
+    
+    # 商业调研与分析类
+    "industry-case-analysis": "行业案例研究分析与商业应用洞察",
+    "market-comparison": "对比不同区域市场与竞品，并提炼最佳实践与策略推荐",
+    "shopping-savings": "产品价格追踪、平台政策与物流成本趋势分析",
 }
 
 
