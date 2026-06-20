@@ -195,9 +195,27 @@ setup_opencode() {
   fi
 }
 
+show_system_info() {
+  echo ""
+  echo "--- [system_info] ---"
+  echo "[INFO] ACTUAL_HOME            : ${ACTUAL_HOME}"
+  echo "[INFO] OPENCODE_HOME          : ${OPENCODE_HOME}"
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    echo "[INFO] OS Version             : ${PRETTY_NAME}"
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    echo "[INFO] Python3 Version        : $(python3 --version 2>&1)"
+  fi
+  if command -v git >/dev/null 2>&1; then
+    echo "[INFO] Git Version            : $(git --version 2>&1)"
+  fi
+}
+
 # 执行顺序
 setup_users
 setup_packages
+show_system_info
 setup_ssh
 setup_opencode
 
