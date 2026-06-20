@@ -8,19 +8,19 @@ services:
       - -c
       - |
         mkdir -p /dockerstartup/custom
-        /dockerstartup/custom/init.sh && exec /dockerstartup/vnc_startup.sh "$$@"
+        /dockerstartup/custom/container-init.sh && exec /dockerstartup/vnc_startup.sh "$$@"
       - --
     ports:
-      - "5901:5901"
-      - "6901:6901"
-      - "2222:22"
-      - "4096:4096"    # opencode WebUI 端口
+      - "${VNC_PORT:-5901}:5901"
+      - "${NOVNC_PORT:-6901}:6901"
+      - "${SSH_PORT:-2222}:22"
+      - "${OPENCODE_PORT:-4096}:4096"    # opencode WebUI 端口
     environment:
-      - TZ=Asia/Seoul
-      - VNC_RESOLUTION=1280x720
-      - VNC_PW=1234
-      - OLLAMA_HOST=http://100.102.149.107:11434
+      - TZ=${TZ:-Asia/Seoul}
+      - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x720}
+      - VNC_PW=${VNC_PW:-1234}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://100.102.149.107:11434}
     volumes:
-      - ./init.sh:/dockerstartup/custom/init.sh:ro
+      - ./container-init.sh:/dockerstartup/custom/container-init.sh:ro
       - ./workspace:/headless/Desktop/workspace    # 将专用的 workspace 目录挂载到桌面，实现管理文件与源码隔离
     restart: unless-stopped

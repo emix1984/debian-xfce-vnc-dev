@@ -1,6 +1,6 @@
 # Debian Xfce VNC 智能开发与 Agent 工作站
 
-基于 [consol/debian-xfce-vnc](https://github.com/ConSol/docker-headless-vnc-container) 官方镜像，通过 `docker-compose.yml` + `init.sh` 构建的免编译、即插即用型 AI Agent 开发与测试沙盒环境。
+基于 [consol/debian-xfce-vnc](https://github.com/ConSol/docker-headless-vnc-container) 官方镜像，通过 `docker-compose.yml` + `container-init.sh` 构建的免编译、即插即用型 AI Agent 开发与测试沙盒环境。
 
 本工作站已深度集成 **OpenCode**（一款先进的本地开发与智能体执行框架），并配备了完善的 MCP（Model Context Protocol）能力配置脚本、远程 LLM（Ollama）智能对接方案，以及自动化插件与技能分发体系。
 
@@ -11,7 +11,7 @@
 ```text
 debian-xfce-vnc-dev/
 ├── docker-compose.yml          # 容器编排 — 配置宿主机端口映射、目录挂载及系统变量
-├── init.sh                     # 容器初次启动引导脚本 — 初始化用户、配置SSH服务、安装系统依赖及OpenCode
+├── container-init.sh           # 容器初次启动引导脚本 — 初始化用户、配置SSH服务、安装系统依赖及OpenCode
 ├── README.md                   # 本说明文件
 └── workspace/                  # 专用工作空间（挂载至容器桌面 `/headless/Desktop/workspace`）
     ├── setup_mcp.py            # MCP 依赖及配置安装脚本（含 mem0ai、Playwright、FAISS 等）
@@ -77,7 +77,7 @@ python3 setup_skill.py
 
 ## 核心组件解析
 
-### 1. init.sh 引导脚本
+### 1. container-init.sh 引导脚本
 保持官方镜像的一致性，通过特权身份（`user: "0"`）在容器冷启动时按需运行：
 * **用户与权限**：自动设置 `root` 密码，并检测/创建带 `sudo` 权限的常用用户 `default`。
 * **SSH 模块**：自动安装并配置 `openssh-server`，修改 `sshd_config` 支持密码登录，生成主机密钥。
@@ -150,6 +150,6 @@ tmux attach -t opencode
 
 | 现象 | 可能原因 | 解决方案 |
 | :--- | :--- | :--- |
-| **容器一直循环重启** | `init.sh` 中的组件执行失败。 | 运行 `docker compose logs` 查阅启动流的 stdout/stderr 日志。 |
-| **`setup_mcp.py` 报错找不到 pip3** | `init.sh` 执行时系统软件包更新尚未生效。 | 请确保 `init.sh` 中的 `setup_packages` 已成功跑完，或在容器中手动 `sudo apt-get update && sudo apt-get install -y python3-pip`。 |
+| **容器一直循环重启** | `container-init.sh` 中的组件执行失败。 | 运行 `docker compose logs` 查阅启动流的 stdout/stderr 日志。 |
+| **`setup_mcp.py` 报错找不到 pip3** | `container-init.sh` 执行时系统软件包更新尚未生效。 | 请确保 `container-init.sh` 中的 `setup_packages` 已成功跑完，或在容器中手动 `sudo apt-get update && sudo apt-get install -y python3-pip`。 |
 | **Playwright 报错无法启动 Chromium** | 操作系统底层缺失 X11/GL 等共享库依赖。 | 脚本中已更新 `--with-deps`。请重新运行 `python3 setup_mcp.py` 以触发系统级依赖补全。 |

@@ -31,7 +31,7 @@ export OPENCODE_PLUGINS_DIR="${OPENCODE_HOME}/plugins"
 export OPENCODE_BIN="${OPENCODE_HOME}/bin/opencode"
 
 echo "========================================"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] init.sh START"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] container-init.sh START"
 echo "========================================"
 echo "[INFO] Container environment: ACTUAL_HOME=${ACTUAL_HOME}, OPENCODE_HOME=${OPENCODE_HOME}"
 
@@ -175,7 +175,7 @@ setup_opencode() {
   # 确保 PATH 包含 opencode
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
-  # 不再对整个 ${LOG_DIR} 执行 chown -R，因为 init.sh 是只读挂载的，会报错
+  # 不再对整个 ${LOG_DIR} 执行 chown -R，因为 container-init.sh 是只读挂载的，会报错
   # 如果需要可以只 chown log 文件： chown root:root "${LOG_DIR}/opencode_web.log" || true
 
   # 使用 nohup 启动 opencode web 并在后台运行
@@ -187,8 +187,8 @@ setup_opencode() {
   if pgrep -f "opencode web" >/dev/null 2>&1; then
     echo "[INFO] OpenCode Web UI is already running."
   else
-    nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
-    echo "[INFO] OpenCode Web UI started with nohup in background."
+    (cd /headless/Desktop/workspace && nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &)
+    echo "[INFO] OpenCode Web UI started with nohup in background from workspace directory."
   fi
 }
 
@@ -200,5 +200,5 @@ setup_opencode
 
 echo ""
 echo "========================================"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] init.sh DONE"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] container-init.sh DONE"
 echo "========================================"

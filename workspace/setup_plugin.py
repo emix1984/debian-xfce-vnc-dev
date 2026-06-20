@@ -13,10 +13,10 @@ import sys
 # =====================================
 # OpenCode 路径配置 - 在 consol/debian-xfce-vnc 容器中
 # =====================================
-# consol/debian-xfce-vnc 容器中 root 用户的 HOME 是 /headless
+WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
 ACTUAL_HOME = os.environ.get("ACTUAL_HOME", "/headless")
-OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(ACTUAL_HOME, ".opencode"))
-OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", os.path.join(ACTUAL_HOME, ".config", "opencode"))
+OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(WORKSPACE_DIR, ".opencode"))
+OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", OPENCODE_HOME)
 OPENCODE_PLUGINS_DIR = os.path.join(OPENCODE_HOME, "plugins")
 PLUGINS_LIST_FILE = os.path.join(OPENCODE_HOME, "plugins.json")
 
@@ -239,7 +239,7 @@ def main():
     # 4. 检查 OpenCode 是否已安装
     if not command_exists("opencode"):
         log("[WARN] OpenCode 未安装，跳过 Plugin 安装步骤", "WARN")
-        log("请先运行 init.sh 或手动安装 OpenCode")
+        log("请先运行 container-init.sh 或手动安装 OpenCode")
     else:
         # 5. 安装 Plugin
         install_plugins(PLUGINS)

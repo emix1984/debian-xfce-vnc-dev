@@ -19,9 +19,10 @@ import sys
 # =====================================
 # OpenCode 路径配置 - 在 consol/debian-xfce-vnc 容器中
 # =====================================
+WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
 ACTUAL_HOME = os.environ.get("ACTUAL_HOME", "/headless")
-OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(ACTUAL_HOME, ".opencode"))
-OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", os.path.join(ACTUAL_HOME, ".config", "opencode"))
+OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(WORKSPACE_DIR, ".opencode"))
+OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", OPENCODE_HOME)
 OPENCODE_SKILLS_DIR = os.path.join(OPENCODE_HOME, "skills")
 SKILLS_LIST_FILE = os.path.join(OPENCODE_HOME, "skills.json")
 
@@ -75,6 +76,13 @@ SKILLS = [
     "industry-case-analysis",
     "market-comparison",
     "shopping-savings",
+    
+    # --- 搜索与扩展技能 ---
+    "anysearch-skill@git+https://github.com/anysearch-ai/anysearch-skill.git",
+    "nuwa-skill@git+https://github.com/alchaincyf/nuwa-skill.git",
+    "darwin-skill@git+https://github.com/alchaincyf/darwin-skill.git",
+    "agent-reach@git+https://github.com/Panniantong/agent-reach.git",
+    "ponytail@git+https://github.com/DietrichGebert/ponytail.git",
 ]
 
 # 优化后的 Skill 描述映射
@@ -98,6 +106,13 @@ SKILL_DESCRIPTIONS = {
     "industry-case-analysis": "行业案例研究分析与商业应用洞察",
     "market-comparison": "对比不同区域市场与竞品，并提炼最佳实践与策略推荐",
     "shopping-savings": "产品价格追踪、平台政策与物流成本趋势分析",
+    
+    # 搜索与扩展技能
+    "anysearch-skill@git+https://github.com/anysearch-ai/anysearch-skill.git": "AnySearch AI 搜索与增强辅助技能",
+    "nuwa-skill@git+https://github.com/alchaincyf/nuwa-skill.git": "Nuwa Skill 拓展能力",
+    "darwin-skill@git+https://github.com/alchaincyf/darwin-skill.git": "Darwin Skill 拓展能力",
+    "agent-reach@git+https://github.com/Panniantong/agent-reach.git": "Agent Reach 触达功能",
+    "ponytail@git+https://github.com/DietrichGebert/ponytail.git": "Ponytail 开发工具辅助",
 }
 
 
@@ -223,7 +238,7 @@ def main():
     if command_exists("opencode"):
         log("[OK] OpenCode 已安装，Skill 配置将在 OpenCode 启动后自动加载")
     else:
-        log("[WARN] OpenCode 未安装，请先运行 init.sh 安装 OpenCode", "WARN")
+        log("[WARN] OpenCode 未安装，请先运行 container-init.sh 安装 OpenCode", "WARN")
 
     # 5. 可选：重启 WebUI（默认不重启）
     restart_webui(restart=False)

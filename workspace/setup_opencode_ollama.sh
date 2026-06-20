@@ -14,9 +14,26 @@ for cmd in curl jq python3; do
 done
 
 # ---------- 配置变量 ----------
-OLLAMA_HOST="100.102.149.107"
-OLLAMA_PORT="11434"
-OLLAMA_BASE_URL="http://${OLLAMA_HOST}:${OLLAMA_PORT}"
+if [ -n "${OLLAMA_HOST:-}" ]; then
+  if [[ "$OLLAMA_HOST" =~ ^https?:// ]]; then
+    OLLAMA_BASE_URL="$OLLAMA_HOST"
+    temp_host_port="${OLLAMA_HOST#*//}"
+    OLLAMA_HOST_PARSED="${temp_host_port%%:*}"
+    OLLAMA_PORT_PARSED="${temp_host_port##*:}"
+    if [ "$OLLAMA_PORT_PARSED" = "$temp_host_port" ]; then
+      OLLAMA_PORT_PARSED="11434"
+    fi
+    OLLAMA_HOST="$OLLAMA_HOST_PARSED"
+    OLLAMA_PORT="$OLLAMA_PORT_PARSED"
+  else
+    OLLAMA_PORT="${OLLAMA_PORT:-11434}"
+    OLLAMA_BASE_URL="http://${OLLAMA_HOST}:${OLLAMA_PORT}"
+  fi
+else
+  OLLAMA_HOST="100.102.149.107"
+  OLLAMA_PORT="11434"
+  OLLAMA_BASE_URL="http://${OLLAMA_HOST}:${OLLAMA_PORT}"
+fi
 ACTUAL_HOME="${ACTUAL_HOME:-${HOME:-/root}}"
 # 容器内 OpenCode 运行默认用户目录是 /headless
 if [ "${ACTUAL_HOME}" = "/root" ] && [ -d /headless ]; then

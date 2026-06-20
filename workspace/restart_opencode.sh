@@ -38,7 +38,7 @@ fi
 echo "[INFO] OpenCode stopped successfully."
 
 # 3. 重新启动 OpenCode
-echo "[INFO] Starting OpenCode with nohup..."
+echo "[INFO] Starting OpenCode with nohup from workspace directory..."
 
 export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
@@ -47,6 +47,7 @@ if ! command -v opencode >/dev/null 2>&1; then
   exit 1
 fi
 
+cd /headless/Desktop/workspace
 nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
 OPENCODE_PID=$!
 
