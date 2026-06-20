@@ -187,7 +187,12 @@ setup_opencode() {
   if pgrep -f "opencode web" >/dev/null 2>&1; then
     echo "[INFO] OpenCode Web UI is already running."
   else
-    (cd /headless/Desktop/workspace && nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &)
+    (
+      cd /headless/Desktop/workspace
+      export OPENCODE_HOME="/headless/Desktop/workspace/.opencode"
+      export OPENCODE_CONFIG_DIR="/headless/Desktop/workspace/.opencode"
+      nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
+    )
     echo "[INFO] OpenCode Web UI started with nohup in background from workspace directory."
   fi
 }

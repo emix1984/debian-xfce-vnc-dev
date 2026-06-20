@@ -48,6 +48,8 @@ if ! command -v opencode >/dev/null 2>&1; then
 fi
 
 cd /headless/Desktop/workspace
+export OPENCODE_HOME="/headless/Desktop/workspace/.opencode"
+export OPENCODE_CONFIG_DIR="/headless/Desktop/workspace/.opencode"
 nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
 OPENCODE_PID=$!
 
