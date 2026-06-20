@@ -189,8 +189,6 @@ setup_opencode() {
   else
     (
       cd /headless/Desktop/workspace
-      export OPENCODE_HOME="/headless/Desktop/workspace/.opencode"
-      export OPENCODE_CONFIG_DIR="/headless/Desktop/workspace/.opencode"
       nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
     )
     echo "[INFO] OpenCode Web UI started with nohup in background from workspace directory."

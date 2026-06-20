@@ -21,8 +21,8 @@ import sys
 # =====================================
 WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
 ACTUAL_HOME = os.environ.get("ACTUAL_HOME", "/headless")
-OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(WORKSPACE_DIR, ".opencode"))
-OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", OPENCODE_HOME)
+OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(ACTUAL_HOME, ".opencode"))
+OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", os.path.join(ACTUAL_HOME, ".config", "opencode"))
 OPENCODE_SKILLS_DIR = os.path.join(OPENCODE_HOME, "skills")
 SKILLS_LIST_FILE = os.path.join(OPENCODE_HOME, "skills.json")
 

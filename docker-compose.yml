@@ -17,7 +17,7 @@ services:
       - "${OPENCODE_PORT:-4096}:4096"    # opencode WebUI 端口
     environment:
       - TZ=${TZ:-Asia/Seoul}
-      - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x720}
+      - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x1024}
       - VNC_PW=${VNC_PW:-1234}
       - OLLAMA_HOST=${OLLAMA_HOST:-http://100.102.149.107:11434}
     volumes:

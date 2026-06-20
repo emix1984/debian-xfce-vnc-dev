@@ -55,8 +55,8 @@ def log_message(msg: str, level: str = "INFO") -> None:
 # ---------------------------------------------------------------------------
 WORKSPACE_DIR = Path(__file__).resolve().parent
 ACTUAL_HOME = Path(os.getenv("ACTUAL_HOME", "/headless"))
-OPENCODE_HOME = Path(os.getenv("OPENCODE_HOME", WORKSPACE_DIR / ".opencode"))
-OPENCODE_CONFIG_DIR = Path(os.getenv("OPENCODE_CONFIG_DIR", OPENCODE_HOME))
+OPENCODE_HOME = Path(os.getenv("OPENCODE_HOME", ACTUAL_HOME / ".opencode"))
+OPENCODE_CONFIG_DIR = Path(os.getenv("OPENCODE_CONFIG_DIR", ACTUAL_HOME / ".config" / "opencode"))
 
 # ---------------------------------------------------------------------------
 # Step 1 – Write MCP configuration JSON
