@@ -187,28 +187,6 @@ setup_opencode() {
   # 确保 PATH 包含 opencode
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
-  # -------------------------------------------------------
-  # 确保 workspace 是 Git 仓库
-  # OpenCode Web UI 通过扫描 git 仓库来列出可打开的项目。
-  # 如果 workspace 目录没有 .git，UI 中的"打开项目"列表将为空。
-  # -------------------------------------------------------
-  WORKSPACE_DIR="/headless/Desktop/workspace"
-  if [ ! -d "${WORKSPACE_DIR}/.git" ]; then
-    echo "[INFO] Initializing git repository in workspace..."
-    git config --global user.email "dev@workspace.local"
-    git config --global user.name "workspace"
-    git config --global init.defaultBranch main
-    (
-      cd "${WORKSPACE_DIR}"
-      git init
-      git add -A
-      git commit -m "initial workspace" --allow-empty
-    )
-    echo "[INFO] Git repository initialized in workspace."
-  else
-    echo "[INFO] Workspace is already a git repository."
-  fi
-
   # 使用 nohup 启动 opencode web 并在后台运行
   if ! command -v opencode >/dev/null 2>&1; then
     echo "[WARN] opencode not found in PATH; skipping start."
@@ -218,11 +196,8 @@ setup_opencode() {
   if pgrep -f "opencode web" >/dev/null 2>&1; then
     echo "[INFO] OpenCode Web UI is already running."
   else
-    (
-      cd "${WORKSPACE_DIR}"
-      nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
-    )
-    echo "[INFO] OpenCode Web UI started with nohup in background from workspace directory."
+    nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
+    echo "[INFO] OpenCode Web UI started with nohup in background."
   fi
 }
 

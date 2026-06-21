@@ -53,18 +53,6 @@ if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
   echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
 fi
 
-# 确保 workspace 是 Git 仓库（OpenCode 需要 .git 才能识别项目）
-WORKSPACE_DIR="/headless/Desktop/workspace"
-if [ ! -d "${WORKSPACE_DIR}/.git" ]; then
-  echo "[INFO] Initializing git repository in workspace..."
-  git config --global user.email "dev@workspace.local"
-  git config --global user.name "workspace"
-  git config --global init.defaultBranch main
-  (cd "${WORKSPACE_DIR}" && git init && git add -A && git commit -m "initial workspace" --allow-empty)
-  echo "[INFO] Git repository initialized."
-fi
-
-cd "${WORKSPACE_DIR}"
 nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
 OPENCODE_PID=$!
 
