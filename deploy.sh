@@ -353,9 +353,9 @@ main_menu() {
     echo -e "3) Restart Environment         8) Full Reset & Clean Volumes"
     echo -e "4) View Container Logs         9) Force Recreate & Start"
     echo -e "5) Run Workspace Init Scripts  10) Force Update from GitHub"
-    echo -e "0) Exit"
+    echo -e "11) Backup & Clean Workspace   0) Exit"
     echo -e "================================================================"
-    echo -n "Select option (0-10): "
+    echo -n "Select option (0-11): "
     read -r menu_opt
 
     case "$menu_opt" in
@@ -424,12 +424,32 @@ main_menu() {
         fi
         sleep 2
         ;;
+      11)
+        echo -e "\n${RED}${BOLD}[WARNING] This will backup and wipe your current 'workspace' directory.${NC}"
+        echo -e "Your current workspace will be renamed to 'workspace_<timestamp>.bak'."
+        echo -e "A fresh, empty 'workspace' folder will be created in its place."
+        echo -n "Type 'yes' to confirm and proceed: "
+        read -r confirm_clean
+        if [[ "$confirm_clean" == "yes" ]]; then
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          bak_dir="workspace_${timestamp}.bak"
+          echo -e "${BLUE}Moving 'workspace' to '${bak_dir}'...${NC}"
+          if [ -d "workspace" ]; then
+            mv workspace "$bak_dir"
+          fi
+          mkdir -p workspace
+          echo -e "${GREEN}[OK] Workspace cleaned and backed up.${NC}"
+        else
+          echo -e "Workspace cleanup canceled."
+        fi
+        sleep 2
+        ;;
       0)
         echo -e "\n${GREEN}Exiting. Good bye!${NC}\n"
         exit 0
         ;;
       *)
-        echo -e "${RED}Invalid option! Please enter a choice between 0 and 10.${NC}"
+        echo -e "${RED}Invalid option! Please enter a choice between 0 and 11.${NC}"
         sleep 1.5
         ;;
     esac
