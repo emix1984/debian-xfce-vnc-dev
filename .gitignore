@@ -1,5 +1,7 @@
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # IDEs
 .vscode/
@@ -13,11 +15,16 @@
 !.env.example
 docker-compose.override.yml
 
-# Local Workspace (as defined in docker-compose.yml)
-workspace/.opencode/
-
 # Logs
 *.log
+logs/
 
-# Deploy config
+# Deploy Scripts & Configs
 .deploy_config
+.deploy_config.bak
+*.bak
+
+# Workspace (User Code & Backups)
+# Prevent user code from polluting the sandbox infrastructure repository
+workspace/
+workspace_*.bak/
