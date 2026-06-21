@@ -26,5 +26,6 @@ logs/
 
 # Workspace (User Code & Backups)
 # Prevent user code from polluting the sandbox infrastructure repository
-workspace/
+workspace/*
+!workspace/.gitkeep
 workspace_*.bak/
