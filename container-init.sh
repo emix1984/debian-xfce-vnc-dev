@@ -164,6 +164,18 @@ setup_opencode() {
   echo ""
   echo "--- [setup_opencode] ---"
 
+  # -------------------------------------------------------
+  # 修正 /etc/passwd 中 root 的 HOME 目录
+  # consol/debian-xfce-vnc 容器以 user:0 运行，但镜像默认
+  # /etc/passwd 中 root 的 HOME 是 /root，而环境变量 HOME=/headless。
+  # OpenCode 会同时参考 $HOME 和 /etc/passwd，两者不一致会导致
+  # 配置和项目识别出现路径冲突。这里统一指向 /headless。
+  # -------------------------------------------------------
+  if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
+    sed -i 's|^root:\(.*\):/root:|root:\1:/headless:|' /etc/passwd
+    echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
+  fi
+
   if [ ! -x "${OPENCODE_BIN}" ]; then
     echo "[INFO] Installing OpenCode as root..."
     curl -fsSL https://opencode.ai/install | bash || echo "[WARN] OpenCode install script returned non-zero"
@@ -175,8 +187,27 @@ setup_opencode() {
   # 确保 PATH 包含 opencode
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
-  # 不再对整个 ${LOG_DIR} 执行 chown -R，因为 container-init.sh 是只读挂载的，会报错
-  # 如果需要可以只 chown log 文件： chown root:root "${LOG_DIR}/opencode_web.log" || true
+  # -------------------------------------------------------
+  # 确保 workspace 是 Git 仓库
+  # OpenCode Web UI 通过扫描 git 仓库来列出可打开的项目。
+  # 如果 workspace 目录没有 .git，UI 中的"打开项目"列表将为空。
+  # -------------------------------------------------------
+  WORKSPACE_DIR="/headless/Desktop/workspace"
+  if [ ! -d "${WORKSPACE_DIR}/.git" ]; then
+    echo "[INFO] Initializing git repository in workspace..."
+    git config --global user.email "dev@workspace.local"
+    git config --global user.name "workspace"
+    git config --global init.defaultBranch main
+    (
+      cd "${WORKSPACE_DIR}"
+      git init
+      git add -A
+      git commit -m "initial workspace" --allow-empty
+    )
+    echo "[INFO] Git repository initialized in workspace."
+  else
+    echo "[INFO] Workspace is already a git repository."
+  fi
 
   # 使用 nohup 启动 opencode web 并在后台运行
   if ! command -v opencode >/dev/null 2>&1; then
@@ -188,7 +219,7 @@ setup_opencode() {
     echo "[INFO] OpenCode Web UI is already running."
   else
     (
-      cd /headless/Desktop/workspace
+      cd "${WORKSPACE_DIR}"
       nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
     )
     echo "[INFO] OpenCode Web UI started with nohup in background from workspace directory."
