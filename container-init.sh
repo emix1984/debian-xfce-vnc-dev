@@ -184,6 +184,11 @@ setup_opencode() {
     echo "[INFO] OpenCode is already installed for root."
   fi
 
+  # 配置全局 Git，OpenCode 依赖 Git 提交记录，如果没有身份信息会报错
+  git config --global user.email "dev@opencode.local"
+  git config --global user.name "OpenCode"
+  git config --global init.defaultBranch main
+
   # 确保 PATH 包含 opencode
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
