@@ -38,7 +38,7 @@ fi
 echo "[INFO] OpenCode stopped successfully."
 
 # 3. 重新启动 OpenCode
-echo "[INFO] Starting OpenCode with nohup from workspace directory..."
+echo "[INFO] Starting OpenCode with nohup from /headless directory..."
 
 export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
@@ -53,6 +53,7 @@ if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
   echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
 fi
 
+cd /headless || true
 nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
 OPENCODE_PID=$!
 
