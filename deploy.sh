@@ -8,8 +8,6 @@
 # ==============================================================================
 
 # Exit codes and safety configurations
-IFS=$'\n\t'
-
 # Color definitions
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -353,9 +351,10 @@ main_menu() {
     echo -e "3) Restart Environment         8) Full Reset & Clean Volumes"
     echo -e "4) View Container Logs         9) Force Recreate & Start"
     echo -e "5) Run Workspace Init Scripts  10) Force Update from GitHub"
-    echo -e "11) Backup & Clean Workspace   0) Exit"
+    echo -e "11) Backup & Clean Workspace   12) View Environment & Paths"
+    echo -e "0) Exit"
     echo -e "================================================================"
-    echo -n "Select option (0-11): "
+    echo -n "Select option (0-12): "
     read -r menu_opt
 
     case "$menu_opt" in
@@ -444,12 +443,35 @@ main_menu() {
         fi
         sleep 2
         ;;
+      12)
+        if ! is_running; then
+          echo -e "\n${RED}[ERROR] Container is not running. Please start the environment first to view dynamic system info.${NC}"
+        else
+          echo -e "\n${BOLD}--- Dynamic System Info (from inside container) ---${NC}"
+          $DOCKER_COMPOSE_CMD exec -T debian-xfce-vnc bash -c '
+            echo -e "\033[0;36mOS Version:\033[0m        " $(cat /etc/os-release | grep PRETTY_NAME | cut -d "=" -f 2 | tr -d "\"")
+            echo -e "\033[0;36mPython Version:\033[0m    " $(python3 --version 2>&1)
+            echo -e "\033[0;36mOpenCode Version:\033[0m  " $(opencode --version 2>/dev/null || echo "Not installed or not in PATH")
+          '
+        fi
+        
+        echo -e "\n${BOLD}--- Default Configuration Paths ---${NC}"
+        echo -e "${CYAN}Container User Home:${NC}     /headless"
+        echo -e "${CYAN}OpenCode Binary Path:${NC}    /usr/local/bin/opencode"
+        echo -e "${CYAN}OpenCode Config Dir:${NC}     /headless/.config/opencode/"
+        echo -e "${CYAN}OpenCode App Data:${NC}       /headless/.local/share/opencode/"
+        echo -e "${CYAN}Host Config Mount:${NC}       /headless/Desktop/config/"
+        echo -e "${CYAN}Host Workspace Mount:${NC}    /headless/Desktop/workspace/"
+        
+        echo ""
+        read -n 1 -s -r -p "Press any key to return..."
+        ;;
       0)
         echo -e "\n${GREEN}Exiting. Good bye!${NC}\n"
         exit 0
         ;;
       *)
-        echo -e "${RED}Invalid option! Please enter a choice between 0 and 11.${NC}"
+        echo -e "${RED}Invalid option! Please enter a choice between 0 and 12.${NC}"
         sleep 1.5
         ;;
     esac
