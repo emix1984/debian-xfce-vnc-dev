@@ -178,8 +178,13 @@ setup_opencode() {
 
   if [ ! -x "${OPENCODE_BIN}" ]; then
     echo "[INFO] Installing OpenCode as root..."
-    curl -fsSL https://opencode.ai/install | bash || echo "[WARN] OpenCode install script returned non-zero"
-    echo "[INFO] OpenCode installation attempted as root."
+    if curl -fsSL https://opencode.ai/install | bash; then
+      echo "[INFO] OpenCode installed successfully."
+    else
+      echo "[WARN] Failed to fetch latest version info (likely GitHub API rate limit)."
+      echo "[INFO] Retrying installation with explicit fallback version (1.17.9)..."
+      curl -fsSL https://opencode.ai/install | bash -s -- --version 1.17.9 || echo "[ERROR] OpenCode fallback install also failed."
+    fi
   else
     echo "[INFO] OpenCode is already installed for root."
   fi
