@@ -21,6 +21,7 @@ services:
       - VNC_PW=${VNC_PW:-1234}
       - OLLAMA_HOST=${OLLAMA_HOST:-http://100.102.149.107:11434}
     volumes:
-      - ./container-init.sh:/dockerstartup/custom/container-init.sh:ro
+      - ./config/container-init.sh:/dockerstartup/custom/container-init.sh:ro
+      - ./config:/headless/Desktop/config          # 将配置文件和环境脚本独立挂载
       - ./workspace:/headless/Desktop/workspace    # 将专用的 workspace 目录挂载到桌面，实现管理文件与源码隔离
     restart: unless-stopped

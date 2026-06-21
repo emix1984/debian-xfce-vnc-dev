@@ -255,44 +255,44 @@ run_workspace_scripts() {
     case "$init_opt" in
       1)
         echo -e "\n${BLUE}[1/1] Running Ollama auto-configuration...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && bash setup_opencode_ollama.sh"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash setup_opencode_ollama.sh"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
       2)
         echo -e "\n${BLUE}[1/1] Installing MCP dependencies...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && python3 setup_mcp.py"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_mcp.py"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
       3)
         echo -e "\n${BLUE}[1/1] Installing OpenCode plugins...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && python3 setup_plugin.py"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_plugin.py"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
       4)
         echo -e "\n${BLUE}[1/1] Importing Agent skills...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && python3 setup_skill.py"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_skill.py"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
       5)
         echo -e "\n${GREEN}Starting Sequential Setup Chain...${NC}"
         echo -e "\n${BLUE}[Step 1/4] Running Ollama configuration...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && bash setup_opencode_ollama.sh"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash setup_opencode_ollama.sh"
         
         echo -e "\n${BLUE}[Step 2/4] Installing MCP dependencies...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && python3 setup_mcp.py"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_mcp.py"
         
         echo -e "\n${BLUE}[Step 3/4] Installing OpenCode plugins...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && python3 setup_plugin.py"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_plugin.py"
         
         echo -e "\n${BLUE}[Step 4/4] Importing Agent skills...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && python3 setup_skill.py"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_skill.py"
         
         echo -e "\n${GREEN}[SUCCESS] Sequential initialization completed!${NC}"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
       6)
         echo -e "\n${BLUE}[1/1] Restarting OpenCode server...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/workspace && bash restart_opencode.sh"
+        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash restart_opencode.sh"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
       0)
