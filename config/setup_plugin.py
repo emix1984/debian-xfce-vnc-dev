@@ -9,6 +9,7 @@ import json
 import subprocess
 import time
 import sys
+import concurrent.futures
 from opencode_utils import (
     OPENCODE_HOME, get_log_file, log as _log, 
     command_exists, restart_webui
@@ -71,9 +72,41 @@ def write_plugin_list(plugins):
 # -------------------------------
 # 模块 3：安装 Plugin
 # -------------------------------
+def install_single_plugin(plugin, idx, total):
+    log(f"[{idx}/{total}] 开始安装 Plugin: {plugin}")
+    success = False
+    max_retries = 3
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            # 正确语法: opencode plugin <module> (没有 install 子命令)
+            result = subprocess.run(
+                ["opencode", "plugin", plugin, "--force"],
+                capture_output=True,
+                timeout=120,
+                text=True,
+            )
+            if result.returncode == 0:
+                log(f"  [OK] {plugin} 安装成功")
+                return (plugin, True)
+            else:
+                err = (result.stderr or result.stdout or "").strip()
+                first_line = err.split("\n")[0] if err else "未知错误"
+                log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {first_line}", "WARN")
+        except subprocess.TimeoutExpired:
+            log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装超时 (120s)", "WARN")
+        except Exception as e:
+            log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装出错: {e}", "WARN")
+        
+        if attempt < max_retries:
+            time.sleep(2)
+            
+    log(f"  [ERROR] {plugin} 在 {max_retries} 次尝试后最终安装失败", "ERROR")
+    return (plugin, False)
+
 def install_plugins(plugins):
-    """使用 opencode plugin <module> 命令安装插件"""
-    log(f"开始安装 {len(plugins)} 个 Plugin...")
+    """使用 opencode plugin <module> 命令安装插件 (并发)"""
+    log(f"开始并发安装 {len(plugins)} 个 Plugin...")
 
     if not command_exists("opencode"):
         log("opencode 命令不可用，请确保已安装 OpenCode", "ERROR")
@@ -81,41 +114,20 @@ def install_plugins(plugins):
 
     installed = []
     failed = []
-
-    for idx, plugin in enumerate(plugins, 1):
-        log(f"[{idx}/{len(plugins)}] 安装 Plugin: {plugin}")
-        success = False
-        max_retries = 3
+    
+    max_workers = min(5, len(plugins)) if plugins else 1
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(install_single_plugin, plugin, idx, len(plugins)): plugin
+            for idx, plugin in enumerate(plugins, 1)
+        }
         
-        for attempt in range(1, max_retries + 1):
-            try:
-                # 正确语法: opencode plugin <module> (没有 install 子命令)
-                result = subprocess.run(
-                    ["opencode", "plugin", plugin, "--force"],
-                    capture_output=True,
-                    timeout=120,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    log(f"  [OK] {plugin} 安装成功")
-                    installed.append(plugin)
-                    success = True
-                    break
-                else:
-                    err = (result.stderr or result.stdout or "").strip()
-                    first_line = err.split("\n")[0] if err else "未知错误"
-                    log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {first_line}", "WARN")
-            except subprocess.TimeoutExpired:
-                log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装超时 (120s)", "WARN")
-            except Exception as e:
-                log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装出错: {e}", "WARN")
-            
-            if attempt < max_retries:
-                time.sleep(2)
-        
-        if not success:
-            log(f"  [ERROR] {plugin} 在 {max_retries} 次尝试后最终安装失败", "ERROR")
-            failed.append(plugin)
+        for future in concurrent.futures.as_completed(futures):
+            plugin, success = future.result()
+            if success:
+                installed.append(plugin)
+            else:
+                failed.append(plugin)
 
     log(f"安装总结: 成功 {len(installed)}/{len(plugins)}, 失败 {len(failed)}/{len(plugins)}")
     if failed:
