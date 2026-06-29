@@ -70,37 +70,13 @@ def build_mcp_config() -> Dict[str, Any]:
     without breaking the current setup.
     """
     base_config: Dict[str, Any] = {
-        "searxng": {"base_url": "http://localhost:8080"},
-        "dcp": {"max_tokens": 4000, "strategy": "semantic"},
         "mem0": {"storage": "sqlite:///mem0.db"},
         "browser": {"engine": "playwright", "headless": True},
         "local_embedding": {"storage": "faiss_index"},
         "filesystem": {"root_path": "/headless/Desktop/workspace"},
         "shell": {"safe_mode": True},
         "pdf_parser": {"storage": "parsed_docs"},
-        "sqlite": {"db_path": "local_data.db"},
-        # ---- Placeholder modules (empty dicts) ----
-        "bestof": {},
-        "comparisons": {},
-        "studying": {},
-        "flashcards": {},
-        "practice-test": {},
-        "generate-quiz": {},
-        "shopping-savings": {},
-        "genui": {},
-        "practice-test-orchestrator": {},
-        "search_uploaded_documents": {},
-        # ---- Additional optional modules (empty dicts) ----
-        "oh-my-opencode-slim": {},
-        "superpowers": {},
-        "opencode-pty": {},
-        "opencode-supermemory": {},
-        "opencode-agent-skills": {},
-        "opencode-worktree": {},
-        "opencode-type-inject": {},
-        "opencode-browser": {},
-        "opencode-arise": {},
-        "opencode-token-monitor": {}
+        "sqlite": {"db_path": "local_data.db"}
     }
     return {"mcp": base_config}
 
