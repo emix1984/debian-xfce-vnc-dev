@@ -9,44 +9,17 @@ import json
 import subprocess
 import time
 import sys
+from opencode_utils import (
+    OPENCODE_HOME, get_log_file, log as _log, 
+    command_exists, restart_webui
+)
 
-# =====================================
-# OpenCode 路径配置 - 在 consol/debian-xfce-vnc 容器中
-# =====================================
-WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
-ACTUAL_HOME = os.environ.get("ACTUAL_HOME", "/headless")
-OPENCODE_HOME = os.environ.get("OPENCODE_HOME", os.path.join(ACTUAL_HOME, ".opencode"))
-OPENCODE_CONFIG_DIR = os.environ.get("OPENCODE_CONFIG_DIR", os.path.join(ACTUAL_HOME, ".config", "opencode"))
+LOG_FILE = get_log_file("setup_plugin")
 OPENCODE_PLUGINS_DIR = os.path.join(OPENCODE_HOME, "plugins")
 PLUGINS_LIST_FILE = os.path.join(OPENCODE_HOME, "plugins.json")
 
-# 将 OpenCode 的 bin 目录加入 PATH，确保后续命令可直接调用 opencode
-os.environ["PATH"] = os.path.join(OPENCODE_HOME, "bin") + ":" + os.environ.get("PATH", "")
-
-# 日志配置 - 日志文件固定存放在 /dockerstartup/custom
-LOG_DIR = os.environ.get("LOG_DIR", "/dockerstartup/custom")
-os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE = os.path.join(LOG_DIR, "setup_plugin.log")
-
-
 def log(msg, level="INFO"):
-    """打印日志到标准输出，并同时写入日志文件"""
-    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {msg}"
-    print(line)
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-    except Exception:
-        pass
-
-
-def command_exists(cmd):
-    """检查命令是否存在"""
-    try:
-        r = subprocess.run(["which", cmd], capture_output=True, timeout=5)
-        return r.returncode == 0
-    except Exception:
-        return False
+    _log(msg, level, LOG_FILE)
 
 
 # Plugin 清单
@@ -191,30 +164,8 @@ def self_check():
 # -------------------------------
 # 模块 5：重启 WebUI（可选）
 # -------------------------------
-def restart_webui(restart=False):
-    """重启 OpenCode WebUI 以应用新 Plugin"""
-    if not restart:
-        log("跳过 WebUI 重启（可选）")
-        return
-
-    port = 4096
-    webui_log = os.path.join(LOG_DIR, "opencode_web.log")
-
-    log("正在重启 OpenCode WebUI...")
-
-    # 停止现有进程
-    subprocess.run(["pkill", "-f", "opencode web"], capture_output=True)
-    time.sleep(2)
-    subprocess.run(["pkill", "-9", "-f", "opencode web"], capture_output=True)
-    time.sleep(1)
-
-    # 启动新实例
-    try:
-        cmd = f"nohup opencode web --hostname 0.0.0.0 --port {port} >> {webui_log} 2>&1 &"
-        subprocess.Popen(cmd, shell=True)
-        log(f"[OK] OpenCode WebUI 已重启 (端口 {port})")
-    except Exception as e:
-        log(f"启动 OpenCode WebUI 失败: {e}", "ERROR")
+def do_restart_webui(restart=False):
+    restart_webui(restart, log_func=log)
 
 
 # -------------------------------
@@ -245,7 +196,7 @@ def main():
         install_plugins(PLUGINS)
 
         # 6. 可选：重启 WebUI（默认不重启）
-        restart_webui(restart=False)
+        do_restart_webui(restart=False)
 
     log("=" * 60)
     log("OpenCode Plugin 配置完成")
