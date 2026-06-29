@@ -84,31 +84,38 @@ def install_plugins(plugins):
 
     for idx, plugin in enumerate(plugins, 1):
         log(f"[{idx}/{len(plugins)}] 安装 Plugin: {plugin}")
-        try:
-            # 正确语法: opencode plugin <module> (没有 install 子命令)
-            result = subprocess.run(
-                ["opencode", "plugin", plugin, "--force"],
-                capture_output=True,
-                timeout=120,
-                text=True,
-            )
-            if result.returncode == 0:
-                log(f"  [OK] {plugin} 安装成功")
-                installed.append(plugin)
-            else:
-                err = (result.stderr or result.stdout or "").strip()
-                # 只取错误信息的第一行，避免输出过长
-                first_line = err.split("\n")[0] if err else "未知错误"
-                log(f"  [WARN] {plugin} 安装失败: {first_line}", "WARN")
-                failed.append(plugin)
-        except subprocess.TimeoutExpired:
-            log(f"  [WARN] {plugin} 安装超时 (120s)", "WARN")
+        success = False
+        max_retries = 3
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                # 正确语法: opencode plugin <module> (没有 install 子命令)
+                result = subprocess.run(
+                    ["opencode", "plugin", plugin, "--force"],
+                    capture_output=True,
+                    timeout=120,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    log(f"  [OK] {plugin} 安装成功")
+                    installed.append(plugin)
+                    success = True
+                    break
+                else:
+                    err = (result.stderr or result.stdout or "").strip()
+                    first_line = err.split("\n")[0] if err else "未知错误"
+                    log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {first_line}", "WARN")
+            except subprocess.TimeoutExpired:
+                log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装超时 (120s)", "WARN")
+            except Exception as e:
+                log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装出错: {e}", "WARN")
+            
+            if attempt < max_retries:
+                time.sleep(2)
+        
+        if not success:
+            log(f"  [ERROR] {plugin} 在 {max_retries} 次尝试后最终安装失败", "ERROR")
             failed.append(plugin)
-        except Exception as e:
-            log(f"  [WARN] {plugin} 安装出错: {e}", "WARN")
-            failed.append(plugin)
-
-        time.sleep(1)
 
     log(f"安装总结: 成功 {len(installed)}/{len(plugins)}, 失败 {len(failed)}/{len(plugins)}")
     if failed:
