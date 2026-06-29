@@ -98,21 +98,28 @@ def write_config(mcp_config: Dict[str, Any], output_path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Step 2 – Dependency installation
 # ---------------------------------------------------------------------------
-def run(command: list[str], description: str) -> None:
-    """Execute *command* with ``subprocess.run`` and log outcome.
+def run(command: list[str], description: str, max_retries: int = 3) -> None:
+    """Execute *command* with ``subprocess.run`` with retries, and log outcome.
 
-    On failure the function logs the full stderr and aborts the script.
+    On total failure the function logs the full stderr and aborts the script.
     """
-    log_message(f"Installing: {description}")
-    try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-        log_message(f"[OK] {description} installed", "INFO")
-    except subprocess.CalledProcessError as err:
-        log_message(
-            f"[ERROR] {description} failed – exit {err.returncode}\nSTDERR: {err.stderr.strip()}",
-            "ERROR",
-        )
-        sys.exit(1)
+    for attempt in range(1, max_retries + 1):
+        log_message(f"Installing (Attempt {attempt}/{max_retries}): {description}")
+        try:
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            log_message(f"[OK] {description} installed successfully.", "INFO")
+            return
+        except subprocess.CalledProcessError as err:
+            err_msg = err.stderr.strip() if err.stderr else (err.stdout.strip() if err.stdout else "Unknown error")
+            log_message(
+                f"[WARN] {description} attempt {attempt} failed – exit {err.returncode}\nOUTPUT: {err_msg}",
+                "WARNING",
+            )
+            if attempt < max_retries:
+                time.sleep(3)
+                
+    log_message(f"[ERROR] {description} failed permanently after {max_retries} attempts.", "ERROR")
+    sys.exit(1)
 
 def install_dependencies() -> None:
     """Install required pip packages and Playwright system deps."""
