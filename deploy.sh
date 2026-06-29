@@ -77,8 +77,6 @@ VNC_RESOLUTION=1280x720
 VNC_PW=1234
 TZ=Asia/Seoul
 
-# AI Model settings (Ollama remote service)
-OLLAMA_HOST=http://100.102.149.107:11434
 EOF
     echo -e "${GREEN}[OK] Private configuration file ($CONFIG_FILE) created.${NC}"
     sleep 1
@@ -103,7 +101,6 @@ EOF
   OPENCODE_PORT="${OPENCODE_PORT:-4096}"
   VNC_RESOLUTION="${VNC_RESOLUTION:-1280x1024}"
   VNC_PW="${VNC_PW:-1234}"
-  OLLAMA_HOST="${OLLAMA_HOST:-http://100.102.149.107:11434}"
   TZ="${TZ:-Asia/Seoul}"
 }
 
@@ -154,7 +151,6 @@ show_dashboard() {
   echo -e " SSH Console login:  ${CYAN}ssh default@localhost -p ${SSH_PORT}${NC} (Password: ${BOLD}${VNC_PW}${NC})"
   echo -e " OpenCode WebUI:     ${CYAN}http://localhost:${OPENCODE_PORT}${NC}"
   echo -e " Custom Ports:       ${CYAN}9980-9990${NC} (后期特殊用途)"
-  echo -e " Ollama Endpoint:    ${CYAN}${OLLAMA_HOST}${NC}"
 }
 
 # --- Edit Parameter Menu ---
@@ -169,8 +165,7 @@ configure_settings() {
     echo -e "4) OpenCode WebUI Port   : ${CYAN}${OPENCODE_PORT}${NC}"
     echo -e "5) VNC Desktop Resolution: ${CYAN}${VNC_RESOLUTION}${NC}"
     echo -e "6) VNC/SSH Password      : ${CYAN}${VNC_PW}${NC}"
-    echo -e "7) Ollama Host URL       : ${CYAN}${OLLAMA_HOST}${NC}"
-    echo -e "8) Container Timezone    : ${CYAN}${TZ}${NC}"
+    echo -e "7) Container Timezone    : ${CYAN}${TZ}${NC}"
     echo -e "0) Back to Main Menu"
     echo -e "\n================================================================"
     echo -n "Select parameter to modify [0-8]: "
@@ -208,11 +203,6 @@ configure_settings() {
         if [ -n "$input_val" ]; then set_config_val "VNC_PW" "$input_val"; fi
         ;;
       7)
-        echo -n "Enter Ollama Host URL [current: ${OLLAMA_HOST}]: "
-        read -r input_val
-        if [ -n "$input_val" ]; then set_config_val "OLLAMA_HOST" "$input_val"; fi
-        ;;
-      8)
         echo -n "Enter Timezone (e.g. Asia/Shanghai) [current: ${TZ}]: "
         read -r input_val
         if [ -n "$input_val" ]; then set_config_val "TZ" "$input_val"; fi
@@ -240,12 +230,11 @@ run_workspace_scripts() {
     show_banner
     echo -e "${BOLD}--- AI Agent Workspace Init Submenu ---${NC}"
     echo -e "Configure the workspace components inside the running container:\n"
-    echo -e "1) Connect & Auto-Configure Ollama (setup_opencode_ollama.sh)"
-    echo -e "2) Install MCP Drivers & System Dependencies (setup_mcp.py)"
-    echo -e "3) Install OpenCode Web Extensions/Plugins (setup_plugin.py)"
-    echo -e "4) Import Agent Skill Definitions (setup_skill.py)"
-    echo -e "5) [Run All] Sequential Setup (Ollama -> MCP -> Plugins -> Skill)"
-    echo -e "6) Restart OpenCode Service Process (restart_opencode.sh)"
+    echo -e "1) Install MCP Drivers & System Dependencies (setup_mcp.py)"
+    echo -e "2) Install OpenCode Web Extensions/Plugins (setup_plugin.py)"
+    echo -e "3) Import Agent Skill Definitions (setup_skill.py)"
+    echo -e "4) [Run All] Sequential Setup (MCP -> Plugins -> Skill)"
+    echo -e "5) Restart OpenCode Service Process (restart_opencode.sh)"
     echo -e "0) Back to Main Menu"
     echo -e "\n================================================================"
     echo -n "Select option [0-6]: "
@@ -253,43 +242,36 @@ run_workspace_scripts() {
 
     case "$init_opt" in
       1)
-        echo -e "\n${BLUE}[1/1] Running Ollama auto-configuration...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash setup_opencode_ollama.sh"
-        read -n 1 -s -r -p "Press any key to continue..."
-        ;;
-      2)
         echo -e "\n${BLUE}[1/1] Installing MCP dependencies...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_mcp.py"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
-      3)
+      2)
         echo -e "\n${BLUE}[1/1] Installing OpenCode plugins...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_plugin.py"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
-      4)
+      3)
         echo -e "\n${BLUE}[1/1] Importing Agent skills...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_skill.py"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
-      5)
+      4)
         echo -e "\n${GREEN}Starting Sequential Setup Chain...${NC}"
-        echo -e "\n${BLUE}[Step 1/4] Running Ollama configuration...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash setup_opencode_ollama.sh"
         
-        echo -e "\n${BLUE}[Step 2/4] Installing MCP dependencies...${NC}"
+        echo -e "\n${BLUE}[Step 1/3] Installing MCP dependencies...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_mcp.py"
         
-        echo -e "\n${BLUE}[Step 3/4] Installing OpenCode plugins...${NC}"
+        echo -e "\n${BLUE}[Step 2/3] Installing OpenCode plugins...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_plugin.py"
         
-        echo -e "\n${BLUE}[Step 4/4] Importing Agent skills...${NC}"
+        echo -e "\n${BLUE}[Step 3/3] Importing Agent skills...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_skill.py"
         
         echo -e "\n${GREEN}[SUCCESS] Sequential initialization completed!${NC}"
         read -n 1 -s -r -p "Press any key to continue..."
         ;;
-      6)
+      5)
         echo -e "\n${BLUE}[1/1] Restarting OpenCode server...${NC}"
         $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash restart_opencode.sh"
         read -n 1 -s -r -p "Press any key to continue..."

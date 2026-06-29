@@ -27,7 +27,7 @@ services:
       - TZ=Asia/Seoul
       - VNC_RESOLUTION=1280x1024
       - VNC_PW=1234
-      - OLLAMA_HOST=http://100.102.149.107:11434
+
     volumes:
       - ./config/container-init.sh:/dockerstartup/custom/container-init.sh:ro
       - ./config:/headless/Desktop/config          # 将配置文件和环境脚本独立挂载

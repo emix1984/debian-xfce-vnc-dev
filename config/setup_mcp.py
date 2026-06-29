@@ -75,7 +75,6 @@ def build_mcp_config() -> Dict[str, Any]:
         "mem0": {"storage": "sqlite:///mem0.db"},
         "browser": {"engine": "playwright", "headless": True},
         "local_embedding": {"storage": "faiss_index"},
-        "local_llm": {"engine": "ollama", "model": "qwen2.5-coder:32b"},
         "filesystem": {"root_path": "/headless/Desktop/workspace"},
         "shell": {"safe_mode": True},
         "pdf_parser": {"storage": "parsed_docs"},

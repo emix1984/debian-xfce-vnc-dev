@@ -2,7 +2,7 @@
 
 基于 [consol/debian-xfce-vnc](https://github.com/ConSol/docker-headless-vnc-container) 官方镜像，通过 `docker-compose.yml` + `container-init.sh` 构建的免编译、即插即用型 AI Agent 开发与测试沙盒环境。
 
-本工作站已深度集成 **OpenCode**（一款先进的本地开发与智能体执行框架），并配备了完善的 MCP（Model Context Protocol）能力配置脚本、远程 LLM（Ollama）智能对接方案，以及自动化插件与技能分发体系。
+本工作站已深度集成 **OpenCode**（一款先进的本地开发与智能体执行框架），并配备了完善的 MCP（Model Context Protocol）能力配置脚本，以及自动化插件与技能分发体系。
 
 ---
 
@@ -21,7 +21,6 @@ debian-xfce-vnc-dev/
 │   ├── container-init.sh       # 容器初次启动引导脚本
 │   ├── restart_opencode.sh     # OpenCode Web 服务一键热重启工具
 │   ├── setup_mcp.py            # MCP 依赖及配置安装脚本（含 mem0ai、Playwright 等）
-│   ├── setup_opencode_ollama.sh# 远程 Ollama 大模型连接与自动导入脚本
 │   ├── setup_plugin.py         # OpenCode 插件管理工具
 │   └── setup_skill.py          # OpenCode 技能包导入工具
 └── workspace/                  # 纯净工作空间（挂载至容器桌面 `/headless/Desktop/workspace`）
@@ -35,8 +34,8 @@ debian-xfce-vnc-dev/
 在宿主机项目根目录下执行 `./deploy.sh` 即可启动图形化终端控制面板，提供以下一键式服务：
 
 - **启停/重置环境**：优雅地启动、停止或彻底清空容器与数据卷。
-- **自定义参数设置**：修改 VNC 端口、分辨率（默认 1280x1024）、连接密码、大模型节点 IP。
-- **一键配置 Agent 工作流**：按序自动执行 Ollama 发现、安装 MCP、载入插件与技能包。
+- **自定义参数设置**：修改 VNC 端口、分辨率（默认 1280x1024）、连接密码。
+- **一键配置 Agent 工作流**：按序自动执行安装 MCP、载入插件与技能包。
 - **工作区备份与清理**：在执行破坏性测试后，可一键备份现有工作区（生成 `workspace_*.bak` 文件夹）并秒级重建纯净的全新工作区。
 - **系统环境状态**：动态穿透容器，一键查看内部操作系统版本、Python 版本、OpenCode 版本及核心配置文件挂载路径。
 
@@ -78,11 +77,10 @@ docker compose -f docker-compose-dev.yml up -d
 * 桌面上挂载的 `workspace` 文件夹是一个纯净的开发沙盒；`config` 文件夹内包含了所有的系统安装与连接脚本。
 
 ### 3. 配置 OpenCode 智能体环境
-在 `./deploy.sh` 面板菜单中选择 `5) Run Workspace Init Scripts`，然后选择 `5) [Run All] Sequential Setup` 以自动按序完成：
-1. **Ollama 大模型对接**：自动扫描远程算力节点并导入模型（如 `qwen3-coder:30b` 及 `mixtral:8x7b`）。
-2. **MCP 驱动安装**：利用 `--with-deps` 补全 `Playwright` 浏览器在 headless 环境下的底层依赖。
-3. **插件安装**：载入如 `oh-my-opencode-slim` 等高级开发能力插件。
-4. **技能包导入**：赋予 Agent 任务拆解、网页访问、代码对比等各项技能。
+在 `./deploy.sh` 面板菜单中选择 `5) Run Workspace Init Scripts`，然后选择 `4) [Run All] Sequential Setup` 以自动按序完成：
+1. **MCP 驱动安装**：利用 `--with-deps` 补全 `Playwright` 浏览器在 headless 环境下的底层依赖。
+2. **插件安装**：载入如 `oh-my-opencode-slim` 等高级开发能力插件。
+3. **技能包导入**：赋予 Agent 任务拆解、网页访问、代码对比等各项技能。
 
 ---
 
@@ -95,8 +93,6 @@ docker compose -f docker-compose-dev.yml up -d
 
 ### 2. 自动化配置脚本群 (config 目录)
 
-* **setup_opencode_ollama.sh**：
-  从远程算力节点拉取模型列表并过滤白名单，自动转换为 OpenCode 的 Provider。
 * **setup_mcp.py**：
   配置 `mcp.config.json`，解决 Linux `headless` 环境下原生系统级共享库（X11/GL 等）缺失的顽疾。
 * **setup_plugin.py**：
