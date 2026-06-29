@@ -116,13 +116,7 @@ def run(command: list[str], description: str) -> None:
 
 def install_dependencies() -> None:
     """Install required pip packages and Playwright system deps."""
-    # faiss-cpu 保持使用 PyPI 预编译轮子，因为从 GitHub 源码编译需要复杂的 C++ 和 CMake 环境
-    packages = [
-        "git+https://github.com/mem0ai/mem0.git", 
-        "git+https://github.com/microsoft/playwright-python.git", 
-        "faiss-cpu", 
-        "git+https://github.com/simonw/sqlite-utils.git"
-    ]
+    packages = ["mem0ai", "playwright", "faiss-cpu", "sqlite-utils"]
     for pkg in packages:
         run(["pip3", "install", "-q", pkg], f"pip package {pkg}")
 
