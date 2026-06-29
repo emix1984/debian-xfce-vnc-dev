@@ -153,6 +153,7 @@ show_dashboard() {
   echo -e " noVNC Browser:      ${CYAN}http://localhost:${NOVNC_PORT}${NC}"
   echo -e " SSH Console login:  ${CYAN}ssh default@localhost -p ${SSH_PORT}${NC} (Password: ${BOLD}${VNC_PW}${NC})"
   echo -e " OpenCode WebUI:     ${CYAN}http://localhost:${OPENCODE_PORT}${NC}"
+  echo -e " Custom Ports:       ${CYAN}9980-9990${NC} (后期特殊用途)"
   echo -e " Ollama Endpoint:    ${CYAN}${OLLAMA_HOST}${NC}"
 }
 

@@ -52,6 +52,7 @@ debian-xfce-vnc-dev/
 | **noVNC 网页版** | `http://localhost:6901` | `6901` | 浏览器直接访问的桌面终端，适合无客户端环境 |
 | **SSH 服务** | `ssh default@localhost -p 2222` | `22` | 宿主机终端命令行远程登录容器（默认密码 `1234`） |
 | **OpenCode WebUI**| `http://localhost:4096` | `4096` | OpenCode 内置开发者 Web 交互与 Agent 控制界面 |
+| **保留端口映射** | `9980-9990` | `9980-9990` | 为后期特殊用途保留的自定义端口段映射 |
 
 ---
 

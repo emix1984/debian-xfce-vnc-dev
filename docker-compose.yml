@@ -15,6 +15,7 @@ services:
       - "${NOVNC_PORT:-6901}:6901"
       - "${SSH_PORT:-2222}:22"
       - "${OPENCODE_PORT:-4096}:4096"    # opencode WebUI 端口
+      - "9980-9990:9980-9990"            # 后期特殊用途保留端口
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x1024}

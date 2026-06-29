@@ -51,17 +51,17 @@ def command_exists(cmd):
 
 # Plugin 清单
 PLUGINS = [
-    "oh-my-opencode-slim",
+    "oh-my-opencode-slim@git+https://github.com/alvinunreal/oh-my-opencode-slim.git",
     "superpowers@git+https://github.com/obra/superpowers.git",
-    "opencode-pty",
-    "opencode-supermemory",
-    "@morphllm/opencode-morph-plugin",
-    "opencode-agent-skills",
-    # "opencode-worktree",      # package has no OpenCode plugin entrypoints
-    # "opencode-type-inject",   # package not found on npm
-    "opencode-browser",
-    "opencode-arise",
-    "opencode-token-monitor",
+    "opencode-pty@git+https://github.com/shekohex/opencode-pty.git",
+    "opencode-supermemory@git+https://github.com/supermemoryai/opencode-supermemory.git",
+    "@morphllm/opencode-morph-plugin@git+https://github.com/morphllm/opencode-morph-plugin.git",
+    "opencode-agent-skills@git+https://github.com/joshuadavidthomas/opencode-agent-skills.git",
+    "opencode-worktree@git+https://github.com/kdcokenny/opencode-worktree.git",
+    "@nick-vi/opencode-type-inject@git+https://github.com/nick-vi/type-inject.git",
+    "opencode-browser@git+https://github.com/different-ai/opencode-browser.git",
+    "opencode-arise@git+https://github.com/moinulmoin/opencode-arise.git",
+    "opencode-token-monitor@git+https://github.com/Ainsley0917/opencode-token-monitor.git",
 ]
 
 

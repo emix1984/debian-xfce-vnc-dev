@@ -16,6 +16,7 @@ services:
       - "6901:6901"       # noVNC 网页端
       - "2222:22"         # SSH 连接
       - "4096:4096"       # OpenCode WebUI
+      - "9980-9990:9980-9990" # 后期特殊用途保留端口
     
     # 也可以取消注释下面这两行，让 Compose 自动将 .deploy_config 当做环境配置读入容器
     # env_file:
