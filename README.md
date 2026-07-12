@@ -20,7 +20,7 @@ debian-xfce-vnc-dev/
 ├── config/                     # 专属环境配置与自动化脚本目录
 │   ├── container-init.sh       # 容器初次启动引导脚本
 │   ├── restart_opencode.sh     # OpenCode Web 服务一键热重启工具
-│   ├── setup_mcp.py            # MCP 依赖及配置安装脚本（含 mem0ai、Playwright 等）
+│   ├── setup_mcp.py            # MCP 依赖及配置安装脚本（含 Node/Bun 安装、MCP 配置生成与远程服务启动）
 │   ├── setup_plugin.py         # OpenCode 插件管理工具
 │   └── setup_skill.py          # OpenCode 技能包导入工具
 └── workspace/                  # 纯净工作空间（挂载至容器桌面 `/headless/Desktop/workspace`）
@@ -82,6 +82,8 @@ docker compose -f docker-compose-dev.yml up -d
 2. **插件安装**：载入如 `oh-my-opencode-slim` 等高级开发能力插件。
 3. **技能包导入**：赋予 Agent 任务拆解、网页访问、代码对比等各项技能。
 
+此外，容器首次启动时会自动执行 `config/container-init.sh`。该脚本会补齐 Node.js 20、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 生成 OpenCode 的 MCP 配置，默认启用本地文件系统、GitHub、浏览器、记忆与远程 PDF/调试/系统监控等服务；如需自定义工作区路径或端口，可通过环境变量 `MCP_WORKSPACE_PATH`、`MCP_PDF_PORT`、`MCP_DEBUG_PORT`、`MCP_SYSTEM_MONITOR_PORT` 和 `MCP_SQLITE_PORT` 调整。
+
 ---
 
 ## 核心底层机制解析
@@ -94,7 +96,7 @@ docker compose -f docker-compose-dev.yml up -d
 ### 2. 自动化配置脚本群 (config 目录)
 
 * **setup_mcp.py**：
-  配置 `mcp.config.json`，解决 Linux `headless` 环境下原生系统级共享库（X11/GL 等）缺失的顽疾。
+  负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。
 * **setup_plugin.py**：
   负责写入 `plugins.json`。脚本内含自检逻辑，防止因旧版本残留配置、异常数组占位符造成的后台 Node.js 进程在加载 Workspace 时死锁挂起。
 

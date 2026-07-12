@@ -24,6 +24,10 @@ logs/
 .deploy_config.bak
 *.bak
 
+# Python / Config cache
+config/__pycache__
+config/.opencode
+
 # Workspace (User Code & Backups)
 # Prevent user code from polluting the sandbox infrastructure repository
 workspace/*

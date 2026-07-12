@@ -160,6 +160,43 @@ setup_packages() {
   fi
 }
 
+setup_node() {
+  echo ""
+  echo "--- [setup_node] ---"
+
+  # If node is already present, skip
+  if command -v node >/dev/null 2>&1; then
+    echo "[INFO] Node already installed: $(node --version 2>&1)"
+  else
+    echo "[INFO] Installing Node.js v20 via NodeSource..."
+    apt_install curl ca-certificates gnupg2 apt-transport-https
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt_install nodejs
+    if command -v node >/dev/null 2>&1; then
+      echo "[INFO] Node installed: $(node --version 2>&1)"
+    else
+      echo "[ERROR] Node installation failed"
+    fi
+  fi
+
+  # Ensure npm exists and install bun (bunx) if missing
+  if command -v bunx >/dev/null 2>&1; then
+    echo "[INFO] bunx already present: $(bunx --version 2>&1 || true)"
+  else
+    if command -v npm >/dev/null 2>&1; then
+      echo "[INFO] Installing bun via npm..."
+      npm install -g bun || echo "[WARN] npm install -g bun failed"
+      if command -v bunx >/dev/null 2>&1; then
+        echo "[INFO] bunx installed: $(bunx --version 2>&1 || true)"
+      else
+        echo "[WARN] bunx not found after npm install"
+      fi
+    else
+      echo "[WARN] npm not available; cannot install bun automatically"
+    fi
+  fi
+}
+
 setup_opencode() {
   echo ""
   echo "--- [setup_opencode] ---"
@@ -234,6 +271,16 @@ setup_packages
 show_system_info
 setup_ssh
 setup_opencode
+setup_node
+
+if [ -f /headless/Desktop/config/setup_mcp.py ]; then
+  echo ""
+  echo "--- [setup_mcp] ---"
+  python3 /headless/Desktop/config/setup_mcp.py --skip-validate || echo "[WARN] MCP setup script failed"
+else
+  echo "[WARN] setup_mcp.py not found; skipping MCP configuration"
+fi
+
 
 echo ""
 echo "========================================"
