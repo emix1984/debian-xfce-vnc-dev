@@ -31,6 +31,12 @@ services:
     volumes:
       - ./config/container-init.sh:/dockerstartup/custom/container-init.sh:ro
       - ./config:/headless/Desktop/config          # 将配置文件和环境脚本独立挂载
-      - ./workspace:/headless/Desktop/workspace    # 将专用的 workspace 目录挂载到桌面
+      - /DATA/AppData/workspace_datahub:/headless/Desktop/workspace    # 将专用的 workspace 目录挂载到桌面
     # 开发模式下遇到错误退出时不自动重启，方便使用 docker logs 查看崩溃现场
     restart: "no"
+    networks:
+      - devnet                             # 加入自定义网络 devnet，便于与其他容器互通
+
+networks:
+  devnet:
+    driver: bridge

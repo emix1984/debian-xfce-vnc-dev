@@ -6,10 +6,10 @@ OpenCode Plugin 安装和配置脚本
 
 import os
 import json
+import re
 import subprocess
 import time
 import sys
-import concurrent.futures
 from opencode_utils import (
     OPENCODE_HOME, get_log_file, log as _log, 
     command_exists, restart_webui
@@ -23,19 +23,49 @@ def log(msg, level="INFO"):
     _log(msg, level, LOG_FILE)
 
 
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\[\?25[hl]")
+
+def strip_ansi(text):
+    """去除 ANSI 转义码"""
+    return ANSI_RE.sub("", text)
+
+
+def extract_error(output):
+    """从 opencode plugin 输出中提取实际错误信息"""
+    clean = strip_ansi(output)
+    lines = [l.strip() for l in clean.splitlines() if l.strip()]
+    error_lines = []
+    for line in lines:
+        line = line.lstrip("│┌└─●◆◇◒◐◓◑■ ").strip()
+        if not line or line.startswith("Install") or line.startswith("Installing"):
+            continue
+        if "Install failed" in line or "Could not install" in line:
+            continue
+        if "plugin package" in line.lower():
+            continue
+        if line.startswith("Done"):
+            continue
+        error_lines.append(line)
+    return "; ".join(error_lines) if error_lines else "未知错误（无输出）"
+
+
 # Plugin 清单
 PLUGINS = [
+    # Original working plugins
     "oh-my-opencode-slim@git+https://github.com/alvinunreal/oh-my-opencode-slim.git",
     "superpowers@git+https://github.com/obra/superpowers.git",
     "opencode-pty@git+https://github.com/shekohex/opencode-pty.git",
     "opencode-supermemory@git+https://github.com/supermemoryai/opencode-supermemory.git",
-    "@morphllm/opencode-morph-plugin@git+https://github.com/morphllm/opencode-morph-plugin.git",
     "opencode-agent-skills@git+https://github.com/joshuadavidthomas/opencode-agent-skills.git",
-    "opencode-worktree@git+https://github.com/kdcokenny/opencode-worktree.git",
-    "@nick-vi/opencode-type-inject@git+https://github.com/nick-vi/type-inject.git",
     "opencode-browser@git+https://github.com/different-ai/opencode-browser.git",
     "opencode-arise@git+https://github.com/moinulmoin/opencode-arise.git",
     "opencode-token-monitor@git+https://github.com/Ainsley0917/opencode-token-monitor.git",
+    "opencode-tmux-plugin@git+https://github.com/liba2k/opencode-tmux-plugin.git",
+    "opencode-preview@git+https://github.com/Edison-A-N/opencode-preview.git",
+    # Newly added (verified accessible)
+    "opencode-wakatime@git+https://github.com/angristan/opencode-wakatime.git",
+    "opencode-helicone-session@git+https://github.com/H2Shami/opencode-helicone-session.git",
+    "opencode-eslint-formatter@git+https://github.com/samholmes/opencode-eslint-formatter.git",
 ]
 
 
@@ -69,44 +99,136 @@ def write_plugin_list(plugins):
         sys.exit(1)
 
 
-# -------------------------------
-# 模块 3：安装 Plugin
-# -------------------------------
+OPENCODE_CACHE_DIR = os.path.join(
+    os.environ.get("ACTUAL_HOME", "/headless"), ".cache", "opencode", "packages"
+)
+
+
+def _find_bun():
+    """查找可用的 bun 可执行文件"""
+    for p in [
+        os.path.join(os.environ.get("HOME", "/root"), ".bun", "bin", "bun"),
+        "/usr/local/bin/bun",
+        "/usr/bin/bun",
+    ]:
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    return None
+
+
+def _plugin_to_cache_dir(plugin):
+    """将 plugin 标识符转换为 opencode 缓存目录路径"""
+    # 格式: name@git+https://github.com/user/repo.git
+    # 缓存路径: .../packages/name@git+https:/github.com/user/repo.git
+    # 注意 git+https: 后只有一个 /
+    if "@git+https://" not in plugin:
+        return None
+    name, url = plugin.split("@git+https://", 1)
+    cache_name = f"{name}@git+https:/{url}"
+    return os.path.join(OPENCODE_CACHE_DIR, cache_name)
+
+
+def _bun_preinstall(plugin):
+    """用 bun 预装依赖到 opencode 缓存目录，绕过 opencode 内部 npm 的 git dep preparation bug"""
+    bun_bin = _find_bun()
+    if not bun_bin:
+        return False
+
+    cache_dir = _plugin_to_cache_dir(plugin)
+    if not cache_dir:
+        return False
+
+    # 从 plugin 标识符提取 user/repo
+    # 格式: name@git+https://github.com/user/repo.git
+    if "@git+https://github.com/" not in plugin:
+        return False
+    raw_name = plugin.split("@git+")[0]
+    github_path = plugin.split("@git+https://github.com/", 1)[1].rstrip("/")
+    if github_path.endswith(".git"):
+        github_path = github_path[:-4]
+
+    # 提取包名（@scope/name 取 / 后的部分）
+    if raw_name.startswith("@"):
+        raw_name = raw_name.rsplit("/", 1)[-1]
+
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        pkg_json = os.path.join(cache_dir, "package.json")
+        with open(pkg_json, "w") as f:
+            json.dump({"dependencies": {raw_name: f"github:{github_path}"}}, f)
+
+        result = subprocess.run(
+            [bun_bin, "install"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=cache_dir,
+        )
+        if result.returncode == 0:
+            log(f"  [FIX] bun 预装依赖成功: {plugin}")
+            return True
+        else:
+            log(f"  [WARN] bun 预装依赖失败: {(result.stderr or result.stdout or '').strip()[:200]}", "WARN")
+    except Exception as e:
+        log(f"  [WARN] bun 预装异常: {e}", "WARN")
+
+    return False
+
+
 def install_single_plugin(plugin, idx, total):
     log(f"[{idx}/{total}] 开始安装 Plugin: {plugin}")
-    success = False
     max_retries = 3
-    
+
     for attempt in range(1, max_retries + 1):
         try:
-            # 正确语法: opencode plugin <module> (没有 install 子命令)
             result = subprocess.run(
                 ["opencode", "plugin", plugin, "--force"],
                 capture_output=True,
                 timeout=120,
                 text=True,
             )
-            if result.returncode == 0:
+            combined = (result.stdout or "") + (result.stderr or "")
+            if result.returncode == 0 and "Install failed" not in combined:
                 log(f"  [OK] {plugin} 安装成功")
                 return (plugin, True)
-            else:
-                err = (result.stderr or result.stdout or "").strip()
-                first_line = err.split("\n")[0] if err else "未知错误"
-                log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {first_line}", "WARN")
+
+            err_msg = extract_error(combined)
+            log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {err_msg}", "WARN")
+
+            # 如果是 git dep preparation failed，尝试 bun 预装后重试
+            if "git dep preparation failed" in combined:
+                if _bun_preinstall(plugin):
+                    # bun 预装成功，直接重试 opencode plugin（不计入 retry 次数）
+                    try:
+                        result2 = subprocess.run(
+                            ["opencode", "plugin", plugin, "--force"],
+                            capture_output=True,
+                            timeout=120,
+                            text=True,
+                        )
+                        combined2 = (result2.stdout or "") + (result2.stderr or "")
+                        if result2.returncode == 0 and "Install failed" not in combined2:
+                            log(f"  [OK] {plugin} 安装成功（bun 预装后）")
+                            return (plugin, True)
+                        else:
+                            log(f"  [WARN] bun 预装后仍失败: {extract_error(combined2)}", "WARN")
+                    except Exception as e:
+                        log(f"  [WARN] bun 预装后重试出错: {e}", "WARN")
+
         except subprocess.TimeoutExpired:
             log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装超时 (120s)", "WARN")
         except Exception as e:
             log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装出错: {e}", "WARN")
-        
+
         if attempt < max_retries:
             time.sleep(2)
-            
+
     log(f"  [ERROR] {plugin} 在 {max_retries} 次尝试后最终安装失败", "ERROR")
     return (plugin, False)
 
 def install_plugins(plugins):
-    """使用 opencode plugin <module> 命令安装插件 (并发)"""
-    log(f"开始并发安装 {len(plugins)} 个 Plugin...")
+    """使用 opencode plugin <module> 命令安装插件 (串行)"""
+    log(f"开始串行安装 {len(plugins)} 个 Plugin...")
 
     if not command_exists("opencode"):
         log("opencode 命令不可用，请确保已安装 OpenCode", "ERROR")
@@ -114,20 +236,13 @@ def install_plugins(plugins):
 
     installed = []
     failed = []
-    
-    max_workers = min(5, len(plugins)) if plugins else 1
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(install_single_plugin, plugin, idx, len(plugins)): plugin
-            for idx, plugin in enumerate(plugins, 1)
-        }
-        
-        for future in concurrent.futures.as_completed(futures):
-            plugin, success = future.result()
-            if success:
-                installed.append(plugin)
-            else:
-                failed.append(plugin)
+
+    for idx, plugin in enumerate(plugins, 1):
+        plugin_name, success = install_single_plugin(plugin, idx, len(plugins))
+        if success:
+            installed.append(plugin_name)
+        else:
+            failed.append(plugin_name)
 
     log(f"安装总结: 成功 {len(installed)}/{len(plugins)}, 失败 {len(failed)}/{len(plugins)}")
     if failed:

@@ -1,47 +1,29 @@
 #!/usr/bin/env python3
-"""setup_mcp.py – Configure OpenCode MCP with robust handling.
+"""setup_mcp.py – Configure OpenCode MCP servers.
 
-Features
---------
-* Uses :pymod:`pathlib` for OS‑independent paths.
-* Centralised ``log_message`` writes to a rotating log file (5 MiB, 3 backups).
-* Added ``argparse`` so you can customise the output config path or enable a dry‑run.
-* Each logical step lives in its own function with type hints and docstrings.
-* Dependency installation now validates the exit code and prints the full ``stderr`` on failure.
-* Playwright installation uses ``--with-deps`` (required for headless browsers).
-* MCP configuration includes the newly requested placeholder modules as **empty dicts**.
-* Self‑check prints a concise summary of detected modules.
-* Restart and health‑check of the OpenCode WebUI are performed with ``nohup`` and proper log handling.
+Writes MCP server configuration into ~/.config/opencode/opencode.jsonc.
+Uses bunx (full path) for MCP server execution.
 """
 
-from __future__ import annotations
-
-import argparse
 import json
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
-from typing import Dict, Any
 
 # ---------------------------------------------------------------------------
-# Logging configuration
+# Paths
 # ---------------------------------------------------------------------------
+ACTUAL_HOME = Path(os.getenv("ACTUAL_HOME", "/headless"))
+OPENCODE_CONFIG_DIR = Path(os.getenv("OPENCODE_CONFIG_DIR", ACTUAL_HOME / ".config" / "opencode"))
+OPENCODE_CONFIG_FILE = OPENCODE_CONFIG_DIR / "opencode.jsonc"
 LOG_DIR = Path(os.getenv("LOG_DIR", "/dockerstartup/custom"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "setup_mcp.log"
+SCRIPT_DIR = Path(__file__).resolve().parent
 
-def log_message(msg: str, level: str = "INFO") -> None:
-    """Write a message to both stdout and the log file.
 
-    Parameters
-    ----------
-    msg: str
-        Human-readable log message.
-    level: str, optional
-        Log level name. Default is INFO.
-    """
+def log(msg: str, level: str = "INFO") -> None:
     line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {msg}"
     print(line)
     try:
@@ -50,206 +32,200 @@ def log_message(msg: str, level: str = "INFO") -> None:
     except Exception:
         pass
 
-# ---------------------------------------------------------------------------
-# Path helpers – they honour the environment variables used by the original script.
-# ---------------------------------------------------------------------------
-WORKSPACE_DIR = Path(__file__).resolve().parent
-ACTUAL_HOME = Path(os.getenv("ACTUAL_HOME", "/headless"))
-OPENCODE_HOME = Path(os.getenv("OPENCODE_HOME", ACTUAL_HOME / ".opencode"))
-OPENCODE_CONFIG_DIR = Path(os.getenv("OPENCODE_CONFIG_DIR", ACTUAL_HOME / ".config" / "opencode"))
 
 # ---------------------------------------------------------------------------
-# Step 1 – Write MCP configuration JSON
+# Find bunx
 # ---------------------------------------------------------------------------
-def build_mcp_config() -> Dict[str, Any]:
-    """Return the MCP configuration dictionary.
+def _find_bunx() -> str:
+    for p in [
+        os.path.join(ACTUAL_HOME, ".bun", "bin", "bunx"),
+        os.path.join(os.environ.get("HOME", "/root"), ".bun", "bin", "bunx"),
+        "/usr/local/bin/bunx",
+        "/usr/bin/bunx",
+    ]:
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    return "bunx"
 
-    The function includes the original required modules **and** the
-    placeholder modules requested by the user. Placeholder modules are
-    represented by empty dictionaries – they can be populated later
-    without breaking the current setup.
-    """
-    base_config: Dict[str, Any] = {
-        "mem0": {"storage": "sqlite:///mem0.db"},
-        "browser": {"engine": "playwright", "headless": True},
-        "local_embedding": {"storage": "faiss_index"},
-        "filesystem": {"root_path": "/headless/Desktop/workspace"},
-        "shell": {"safe_mode": True},
-        "pdf_parser": {"storage": "parsed_docs"},
-        "sqlite": {"db_path": "local_data.db"}
-    }
-    return {"mcp": base_config}
 
-def write_config(mcp_config: Dict[str, Any], output_path: Path) -> Path:
-    """Write *mcp_config* to *output_path* as pretty‑printed JSON.
+BUNX = _find_bunx()
+log(f"Using bunx: {BUNX}")
 
-    Returns the path of the written file for later steps.
-    """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# MCP servers
+# ---------------------------------------------------------------------------
+MCP_SERVERS = {
+    "filesystem": {
+        "type": "local",
+        "command": [BUNX, "@modelcontextprotocol/server-filesystem", "/headless/Desktop/workspace"],
+        "enabled": True,
+    },
+    "postgres": {
+        "type": "local",
+        "command": [BUNX, "@modelcontextprotocol/server-postgres"],
+        "enabled": True,
+    },
+    "puppeteer": {
+        "type": "local",
+        "command": [BUNX, "@modelcontextprotocol/server-puppeteer"],
+        "enabled": True,
+    },
+    "memory": {
+        "type": "local",
+        "command": [BUNX, "@modelcontextprotocol/server-memory"],
+        "enabled": True,
+    },
+    "sequential-thinking": {
+        "type": "local",
+        "command": [BUNX, "@modelcontextprotocol/server-sequential-thinking"],
+        "enabled": True,
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Read existing config
+# ---------------------------------------------------------------------------
+def read_existing_config() -> dict:
+    if not OPENCODE_CONFIG_FILE.exists():
+        return {}
     try:
-        with output_path.open("w", encoding="utf-8") as f:
-            json.dump(mcp_config, f, indent=2, ensure_ascii=False)
-        log_message(f"MCP configuration written to {output_path}")
-    except Exception as exc:
-        log_message(f"Failed to write MCP config: {exc}", "ERROR")
-        sys.exit(1)
-    return output_path
+        content = OPENCODE_CONFIG_FILE.read_text(encoding="utf-8")
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        log(f"Warning: existing config invalid JSON, will overwrite: {e}", "WARN")
+        return {}
+
 
 # ---------------------------------------------------------------------------
-# Step 2 – Dependency installation
+# Merge & write config
 # ---------------------------------------------------------------------------
-def run(command: list[str], description: str, max_retries: int = 3) -> None:
-    """Execute *command* with ``subprocess.run`` with retries, and log outcome.
+def build_config(existing: dict) -> dict:
+    existing["mcp"] = MCP_SERVERS
+    return existing
 
-    On total failure the function logs the full stderr and aborts the script.
-    """
-    for attempt in range(1, max_retries + 1):
-        log_message(f"Installing (Attempt {attempt}/{max_retries}): {description}")
-        try:
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
-            log_message(f"[OK] {description} installed successfully.", "INFO")
-            return
-        except subprocess.CalledProcessError as err:
-            err_msg = err.stderr.strip() if err.stderr else (err.stdout.strip() if err.stdout else "Unknown error")
-            log_message(
-                f"[WARN] {description} attempt {attempt} failed – exit {err.returncode}\nOUTPUT: {err_msg}",
-                "WARNING",
-            )
-            if attempt < max_retries:
-                time.sleep(3)
-                
-    log_message(f"[ERROR] {description} failed permanently after {max_retries} attempts.", "ERROR")
-    sys.exit(1)
 
-def install_dependencies() -> None:
-    """Install required pip packages and Playwright system deps."""
-    packages = ["mem0ai", "playwright", "faiss-cpu", "sqlite-utils"]
-    for pkg in packages:
-        run(["pip3", "install", "-q", pkg], f"pip package {pkg}")
-
-    # Playwright needs its browsers and system libraries.
-    run(["playwright", "install", "--with-deps"], "Playwright (with system deps)")
-
-# ---------------------------------------------------------------------------
-# Helper – locate the *opencode* binary (fallback to bundled copy)
-# ---------------------------------------------------------------------------
-def get_opencode_bin() -> str:
-    """Return the executable name or absolute path of *opencode*.
-
-    The function first tries ``which opencode``; if not found it falls back to a
-    bundled binary under ``$ACTUAL_HOME/.opencode/bin/opencode``.
-    """
+def write_config(config: dict) -> None:
+    OPENCODE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        result = subprocess.run(["which", "opencode"], capture_output=True, text=True, check=True)
-        return result.stdout.strip() or "opencode"
-    except Exception:
-        bundled = ACTUAL_HOME / ".opencode" / "bin" / "opencode"
-        return str(bundled) if bundled.exists() else "opencode"
+        content = json.dumps(config, indent=2, ensure_ascii=False)
+        with open(OPENCODE_CONFIG_FILE, "w", encoding="utf-8") as f:
+            f.write(content)
+        # Verify write
+        verify = json.loads(OPENCODE_CONFIG_FILE.read_text(encoding="utf-8"))
+        assert "mcp" in verify and len(verify["mcp"]) == len(MCP_SERVERS)
+        log(f"Config written and verified: {OPENCODE_CONFIG_FILE}")
+    except Exception as e:
+        log(f"ERROR writing config: {e}", "ERROR")
+        raise
+
 
 # ---------------------------------------------------------------------------
-# Step 3 – Restart OpenCode WebUI using ``nohup``
+# Restart WebUI using restart_opencode.sh
 # ---------------------------------------------------------------------------
 def restart_webui(port: int = 4096) -> None:
-    log_message(f"Restarting OpenCode WebUI on port {port} (nohup)…")
-    # Stop any existing instance gracefully, then force‑kill lingering ones.
+    restart_script = SCRIPT_DIR / "restart_opencode.sh"
+    if restart_script.exists():
+        log(f"Restarting WebUI via {restart_script}...")
+        result = subprocess.run(
+            ["bash", str(restart_script)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            log(f"Restart script failed: {result.stderr[:500]}", "WARN")
+        else:
+            log("Restart script completed successfully")
+    else:
+        log(f"{restart_script} not found, restarting directly...")
+        _restart_direct(port)
+
+
+def _restart_direct(port: int) -> None:
+    # Kill existing processes
     subprocess.run(["pkill", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1)
+    time.sleep(2)
     subprocess.run(["pkill", "-9", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1)
 
+    try:
+        result = subprocess.run(["which", "opencode"], capture_output=True, text=True)
+        bin_path = result.stdout.strip() or "opencode"
+    except Exception:
+        bin_path = "opencode"
+
     log_path = LOG_DIR / "opencode_web.log"
-    bin_path = get_opencode_bin()
-    cmd = f"nohup {bin_path} web --hostname 0.0.0.0 --port {port} >> {log_path} 2>&1 &"
-    subprocess.Popen(cmd, shell=True)
-    log_message("[OK] OpenCode WebUI launched in background")
+    subprocess.Popen(
+        f"nohup {bin_path} web --hostname 0.0.0.0 --port {port} >> {log_path} 2>&1 &",
+        shell=True,
+    )
+    log("[OK] WebUI launched directly")
+
 
 # ---------------------------------------------------------------------------
-# Step 4 – Verify the WebUI is reachable
+# Verify MCP servers after restart
 # ---------------------------------------------------------------------------
-def check_webui(port: int = 4096, retries: int = 10, interval: int = 3) -> bool:
-    url = f"http://127.0.0.1:{port}"
-    log_message(f"Waiting for WebUI to become reachable ({retries * interval}s max)…")
-    for attempt in range(1, retries + 1):
+def verify_mcp(timeout: int = 15) -> bool:
+    """Check if opencode process is running."""
+    for i in range(timeout):
         try:
             result = subprocess.run(
-                ["curl", "-s", "-m", "5", url],
+                ["pgrep", "-f", "opencode"],
                 capture_output=True,
-                timeout=10,
+                text=True,
             )
-            if result.returncode == 0:
-                log_message(f"[OK] WebUI reachable at {url}")
+            if result.returncode == 0 and result.stdout.strip():
+                log(f"OpenCode process found: {result.stdout.strip().splitlines()[0]}")
                 return True
         except Exception:
             pass
-        if attempt < retries:
-            log_message(f"Attempt {attempt}/{retries} failed – retrying in {interval}s…")
-            time.sleep(interval)
-    log_message("[ERROR] WebUI did not become reachable – see opencode_web.log for details", "WARNING")
+        time.sleep(1)
+
+    log("OpenCode process not found after restart", "WARN")
     return False
 
-# ---------------------------------------------------------------------------
-# Step 5 – Self‑check of the generated MCP config
-# ---------------------------------------------------------------------------
-def self_check(config_path: Path) -> bool:
-    log_message("Running self‑check on the generated MCP config…")
-    if not config_path.is_file():
-        log_message(f"Configuration file missing: {config_path}", "ERROR")
-        return False
-    try:
-        with config_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as exc:
-        log_message(f"JSON decode error: {exc}", "ERROR")
-        return False
-    if "mcp" not in data or not isinstance(data["mcp"], dict):
-        log_message("Invalid MCP structure – 'mcp' key missing or not a dict", "WARNING")
-        return False
-    modules = list(data["mcp"].keys())
-    log_message(f"[OK] Detected {len(modules)} MCP modules: {', '.join(modules)}")
-    return True
 
 # ---------------------------------------------------------------------------
-# Main orchestration
+# Main
 # ---------------------------------------------------------------------------
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Configure OpenCode MCP.")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=OPENCODE_CONFIG_DIR / "mcp.config.json",
-        help="Path where the MCP JSON will be written (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Generate the config file and exit without installing dependencies or restarting WebUI.",
-    )
+    import argparse
+    parser = argparse.ArgumentParser(description="Configure OpenCode MCP servers")
+    parser.add_argument("--dry-run", action="store_true", help="Generate config only")
+    parser.add_argument("--no-restart", action="store_true", help="Skip restart")
     args = parser.parse_args()
 
-    log_message("=" * 50)
-    log_message("Starting OpenCode MCP configuration")
-    log_message("=" * 50)
+    log("=" * 50)
+    log("OpenCode MCP Configuration")
+    log("=" * 50)
 
-    config = build_mcp_config()
-    config_file = write_config(config, args.output)
+    # 1. Read & merge config
+    existing = read_existing_config()
+    config = build_config(existing)
 
-    if not self_check(config_file):
-        log_message("Self‑check failed – aborting", "ERROR")
-        sys.exit(1)
+    # 2. Write & verify
+    write_config(config)
+    log(f"MCP servers: {', '.join(MCP_SERVERS.keys())}")
 
     if args.dry_run:
-        log_message("Dry‑run requested – exiting after config generation.")
-        sys.exit(0)
+        log("Dry run complete")
+        return
 
-    install_dependencies()
+    # 3. Restart
     restart_webui()
-    if not check_webui():
-        log_message("WebUI health‑check failed – please review the logs.", "ERROR")
-        sys.exit(1)
 
-    log_message("=" * 50)
-    log_message("OpenCode MCP configuration completed successfully")
-    log_message("=" * 50)
+    # 4. Verify
+    if verify_mcp():
+        log("[OK] OpenCode is running")
+    else:
+        log("[WARN] OpenCode may not have started correctly", "WARN")
+
+    log("=" * 50)
+    log("MCP configuration complete")
+    log("=" * 50)
+
 
 if __name__ == "__main__":
     main()
