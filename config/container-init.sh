@@ -164,19 +164,26 @@ setup_node() {
   echo ""
   echo "--- [setup_node] ---"
 
-  # If node is already present, skip
+  local current_ver=""
   if command -v node >/dev/null 2>&1; then
-    echo "[INFO] Node already installed: $(node --version 2>&1)"
-  else
-    echo "[INFO] Installing Node.js v20 via NodeSource..."
+    current_ver=$(node -v | cut -d'v' -f2)
+    echo "[INFO] Current Node version: v${current_ver}"
+  fi
+
+  # If node is not present, or its major version is less than 22, install/upgrade to v22
+  if [ -z "${current_ver}" ] || [ "$(echo "${current_ver}" | cut -d'.' -f1)" -lt 22 ]; then
+    echo "[INFO] Installing/Upgrading Node.js v22 via NodeSource..."
     apt_install curl ca-certificates gnupg2 apt-transport-https
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt_install nodejs
     if command -v node >/dev/null 2>&1; then
-      echo "[INFO] Node installed: $(node --version 2>&1)"
+      echo "[INFO] Node installed/upgraded to: $(node --version 2>&1)"
     else
-      echo "[ERROR] Node installation failed"
+      echo "[ERROR] Node installation/upgrade failed"
+      exit 1
     fi
+  else
+    echo "[INFO] Node.js version $(node -v) is already v22+, skipping installation."
   fi
 
   # Ensure npm exists and install bun (bunx) if missing

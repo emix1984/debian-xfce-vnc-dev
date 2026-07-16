@@ -96,7 +96,10 @@ docker compose -f docker-compose-dev.yml up -d
 ### 2. 自动化配置脚本群 (config 目录)
 
 * **setup_mcp.py**：
-  负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。
+  负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。同时集成了：
+  - **Node.js 22 LTS 升级机制**：避免旧版 Node 导致的 better-sqlite3 编译崩溃。
+  - **Puppeteer 容器免沙箱配置**：提供 `ALLOW_DANGEROUS` 和 `--no-sandbox` 参数，使浏览器顺利启动。
+  - **`base_config` 预设辞典**：在 Python 脚本中统一管理并维护所有开发插件与核心模块的基础配置字段。
 * **setup_plugin.py**：
   负责写入 `plugins.json`。脚本内含自检逻辑，防止因旧版本残留配置、异常数组占位符造成的后台 Node.js 进程在加载 Workspace 时死锁挂起。
 

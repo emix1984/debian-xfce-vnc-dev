@@ -120,6 +120,10 @@ def build_mcp_servers(bunx_path: str) -> dict:
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-puppeteer"],
             "enabled": True,
+            "env": {
+                "ALLOW_DANGEROUS": "true",
+                "PUPPETEER_LAUNCH_OPTIONS": '{"args": ["--no-sandbox"]}'
+            }
         },
         "memory": {
             "type": "local",
@@ -313,8 +317,45 @@ def read_existing_config() -> dict:
 # ---------------------------------------------------------------------------
 # Merge & write config
 # ---------------------------------------------------------------------------
+base_config = {
+    "searxng": {"base_url": "http://localhost:8080"},
+    "dcp": {"max_tokens": 4000, "strategy": "semantic"},
+    "mem0": {"storage": "sqlite:///mem0.db"},
+    "browser": {"engine": "playwright", "headless": True},
+    "local_embedding": {"storage": "faiss_index"},
+    "local_llm": {"engine": "ollama", "model": "qwen2.5-coder:32b"},
+    "filesystem": {"root_path": "/headless/Desktop/workspace"},
+    "shell": {"safe_mode": True},
+    "pdf_parser": {"storage": "parsed_docs"},
+    "sqlite": {"db_path": "local_data.db"},
+    # ---- Placeholder modules (empty dicts) ----
+    "bestof": {},
+    "comparisons": {},
+    "studying": {},
+    "flashcards": {},
+    "practice-test": {},
+    "generate-quiz": {},
+    "shopping-savings": {},
+    "genui": {},
+    "practice-test-orchestrator": {},
+    "search_uploaded_documents": {},
+    # ---- Additional optional modules (empty dicts) ----
+    "oh-my-opencode-slim": {},
+    "superpowers": {},
+    "opencode-pty": {},
+    "opencode-supermemory": {},
+    "opencode-agent-skills": {},
+    "opencode-worktree": {},
+    "opencode-type-inject": {},
+    "opencode-browser": {},
+    "opencode-arise": {},
+    "opencode-token-monitor": {}
+}
+
+
 def build_config(existing: dict, servers: dict) -> dict:
     existing["mcp"] = servers
+    existing.pop("base_config", None)
     return existing
 
 
