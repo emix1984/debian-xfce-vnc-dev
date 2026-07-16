@@ -14,84 +14,24 @@ import time
 from pathlib import Path
 from typing import Optional
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-ACTUAL_HOME = Path(os.getenv("ACTUAL_HOME", "/headless"))
-OPENCODE_CONFIG_DIR = Path(os.getenv("OPENCODE_CONFIG_DIR", ACTUAL_HOME / ".config" / "opencode"))
-OPENCODE_CONFIG_FILE = OPENCODE_CONFIG_DIR / "opencode.jsonc"
-DEFAULT_LOG_DIR = Path(os.getenv("LOG_DIR", "/dockerstartup/custom"))
-try:
-    DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    LOG_DIR = DEFAULT_LOG_DIR
-except OSError:
-    LOG_DIR = Path("/tmp/opencode-mcp")
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / "setup_mcp.log"
+from opencode_utils import (
+    ACTUAL_HOME,
+    OPENCODE_CONFIG_DIR,
+    OPENCODE_CONFIG_FILE,
+    LOG_DIR,
+    get_log_file,
+    log as _log,
+    find_bunx,
+    ensure_bunx,
+    restart_webui as _restart_webui,
+)
+
+LOG_FILE = get_log_file("setup_mcp")
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def log(msg: str, level: str = "INFO") -> None:
-    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {msg}"
-    print(line)
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-    except Exception:
-        pass
-
-
-# ---------------------------------------------------------------------------
-# Find bunx
-# ---------------------------------------------------------------------------
-def _find_bunx() -> str:
-    for p in [
-        os.path.join(ACTUAL_HOME, ".bun", "bin", "bunx"),
-        os.path.join(os.environ.get("HOME", "/root"), ".bun", "bin", "bunx"),
-        "/usr/local/bin/bunx",
-        "/usr/bin/bunx",
-    ]:
-        if os.path.isfile(p) and os.access(p, os.X_OK):
-            return p
-
-    path_bunx = shutil.which("bunx")
-    if path_bunx:
-        return path_bunx
-
-    return None
-
-
-def _ensure_bunx() -> str:
-    """Find bunx or install it if missing."""
-    bunx_path = _find_bunx()
-    if bunx_path:
-        return bunx_path
-
-    log("bunx not found, attempting to install bun@latest...")
-    try:
-        result = subprocess.run(
-            ["npm", "install", "-g", "bun"],
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
-    except FileNotFoundError:
-        log("npm not found in PATH. Install Node.js/npm or set BUNX env var.", "ERROR")
-        raise RuntimeError("npm not found: please install Node.js and npm, or provide bunx path via BUNX env var")
-    except Exception as e:
-        log(f"ERROR running npm install: {e}", "ERROR")
-        raise RuntimeError("Failed to run npm to install bun") from e
-
-    if result.returncode != 0:
-        log(f"npm install failed: {result.stderr[:500]}", "ERROR")
-        raise RuntimeError("Failed to install bun via npm")
-
-    bunx_path = _find_bunx()
-    if not bunx_path:
-        raise RuntimeError("bunx still not found after npm install")
-
-    log(f"Successfully installed bun, bunx at: {bunx_path}")
-    return bunx_path
+    _log(msg, level, LOG_FILE)
 
 
 # BUNX resolution is performed at runtime in main()
@@ -372,42 +312,7 @@ def write_config(config: dict) -> None:
 # Restart WebUI using restart_opencode.sh
 # ---------------------------------------------------------------------------
 def restart_webui(port: int = 4096) -> None:
-    restart_script = SCRIPT_DIR / "restart_opencode.sh"
-    if restart_script.exists():
-        log(f"Restarting WebUI via {restart_script}...")
-        result = subprocess.run(
-            ["bash", str(restart_script)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            log(f"Restart script failed: {result.stderr[:500]}", "WARN")
-        else:
-            log("Restart script completed successfully")
-    else:
-        log(f"{restart_script} not found, restarting directly...")
-        _restart_direct(port)
-
-
-def _restart_direct(port: int) -> None:
-    # Kill existing processes
-    subprocess.run(["pkill", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(2)
-    subprocess.run(["pkill", "-9", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1)
-
-    try:
-        result = subprocess.run(["which", "opencode"], capture_output=True, text=True)
-        bin_path = result.stdout.strip() or "opencode"
-    except Exception:
-        bin_path = "opencode"
-
-    log_path = LOG_DIR / "opencode_web.log"
-    subprocess.Popen(
-        f"nohup {bin_path} web --hostname 0.0.0.0 --port {port} >> {log_path} 2>&1 &",
-        shell=True,
-    )
+    _restart_webui(port, LOG_FILE)
     log("[OK] WebUI launched directly")
 
 
@@ -462,7 +367,7 @@ def main() -> None:
             log(f"BUNX env provided but not executable: {env_bunx}", "ERROR")
             raise RuntimeError(f"BUNX env provided but not executable: {env_bunx}")
     else:
-        BUNX = _ensure_bunx()
+        BUNX = ensure_bunx(LOG_FILE)
         log(f"Using bunx: {BUNX}")
 
     # 2. Build servers with resolved bunx

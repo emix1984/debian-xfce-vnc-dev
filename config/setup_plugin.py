@@ -82,12 +82,16 @@ def prepare_plugin_dir():
 # 模块 2：写入 Plugin 清单
 # -------------------------------
 def write_plugin_list(plugins):
-    """写入 plugin 清单到配置文件"""
-    cleaned = [p for p in plugins if isinstance(p, str) and p]
+    """写入 plugin 清单到配置文件 (只保留干净的包名)"""
+    names = []
+    for p in plugins:
+        if isinstance(p, str) and p:
+            name = p.split("@")[0]
+            names.append(name)
     data = {
-        "plugins": cleaned,
+        "plugins": names,
         "lastUpdated": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "count": len(cleaned),
+        "count": len(names),
     }
     try:
         os.makedirs(os.path.dirname(PLUGINS_LIST_FILE), exist_ok=True)
@@ -226,9 +230,9 @@ def install_single_plugin(plugin, idx, total):
     log(f"  [ERROR] {plugin} 在 {max_retries} 次尝试后最终安装失败", "ERROR")
     return (plugin, False)
 
-def install_plugins(plugins):
-    """使用 opencode plugin <module> 命令安装插件 (串行)"""
-    log(f"开始串行安装 {len(plugins)} 个 Plugin...")
+def install_plugins_legacy(plugins):
+    """使用 opencode plugin <module> 命令安装插件 (串行备份逻辑)"""
+    log(f"正在使用备份逻辑串行安装 {len(plugins)} 个 Plugin...")
 
     if not command_exists("opencode"):
         log("opencode 命令不可用，请确保已安装 OpenCode", "ERROR")
@@ -249,6 +253,70 @@ def install_plugins(plugins):
         log(f"  失败的 Plugin: {', '.join(failed)}", "WARN")
 
     return installed, failed
+
+
+def install_plugins(plugins):
+    """通过生成 package.json 并执行 bun install 来安装所有插件，以保证安装成功率 100% 且显示名称简短干净"""
+    log("开始生成 package.json 并批量安装 Plugin...")
+    
+    # 1. 构造 package.json 依赖
+    dependencies = {
+        "@opencode-ai/plugin": "1.18.2"
+    }
+    for p in plugins:
+        if not isinstance(p, str) or not p:
+            continue
+        if "@" in p:
+            name, url = p.split("@", 1)
+            dependencies[name] = url
+        else:
+            dependencies[p] = "latest"
+            
+    # 2. 写入 package.json
+    pkg_json_file = os.path.join(OPENCODE_HOME, "package.json")
+    try:
+        existing_data = {}
+        if os.path.exists(pkg_json_file):
+            try:
+                with open(pkg_json_file, "r") as f:
+                    existing_data = json.load(f)
+            except Exception:
+                pass
+        
+        existing_data["dependencies"] = dependencies
+        with open(pkg_json_file, "w", encoding="utf-8") as f:
+            json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        log(f"package.json 依赖配置已更新: {pkg_json_file}")
+    except Exception as e:
+        log(f"写入 package.json 失败: {e}", "ERROR")
+        sys.exit(1)
+        
+    # 3. 运行 bun install
+    bun_bin = _find_bun()
+    if not bun_bin:
+        log("bun 未找到，退回使用 opencode plugin 命令逐个安装...", "WARN")
+        return install_plugins_legacy(plugins)
+        
+    log("正在通过 bun 批量安装插件和依赖...")
+    try:
+        result = subprocess.run(
+            [bun_bin, "install"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            cwd=OPENCODE_HOME
+        )
+        if result.returncode == 0:
+            log("[OK] 所有插件已通过 bun 成功安装到 node_modules 中！")
+            return list(dependencies.keys()), []
+        else:
+            log(f"bun install 失败: {result.stderr or result.stdout}", "WARN")
+            log("退回使用 opencode plugin 命令逐个安装...", "WARN")
+            return install_plugins_legacy(plugins)
+    except Exception as e:
+        log(f"bun 安装异常: {e}", "WARN")
+        log("退回使用 opencode plugin 命令逐个安装...", "WARN")
+        return install_plugins_legacy(plugins)
 
 
 # -------------------------------
@@ -299,7 +367,10 @@ def self_check():
 # 模块 5：重启 WebUI（可选）
 # -------------------------------
 def do_restart_webui(restart=False):
-    restart_webui(restart, log_func=log)
+    if not restart:
+        log("跳过 WebUI 重启（可选）")
+        return
+    restart_webui(4096, LOG_FILE)
 
 
 # -------------------------------

@@ -163,7 +163,10 @@ def self_check():
 # 模块 4：重启 WebUI（可选）
 # -------------------------------
 def do_restart_webui(restart=False):
-    restart_webui(restart, log_func=log)
+    if not restart:
+        log("跳过 WebUI 重启（可选）")
+        return
+    restart_webui(4096, LOG_FILE)
 
 
 # -------------------------------

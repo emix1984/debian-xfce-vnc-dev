@@ -42,11 +42,24 @@
 - **技术原因**：
   Chromium 浏览器出于安全性考虑，默认不允许在 `root` 用户下以沙箱模式（Sandbox）启动。在 Docker 容器以 root 运行时，启动会直接崩溃。
 - **解决方法**：
-  在 `opencode.jsonc` 配置文件中为 puppeteer 注册特殊的启动环境变量：
+  In `opencode.jsonc` 配置文件中为 puppeteer 注册特殊的启动环境变量：
   - `ALLOW_DANGEROUS`: `true`
   - `PUPPETEER_LAUNCH_OPTIONS`: `{"args": ["--no-sandbox"]}`
   
   这会指引 Chromium 以 `--no-sandbox` 模式启动，从而在 root 容器内正常运转。
+
+---
+
+### 1.4 OpenCode 插件安装失败及 WebUI 面板显示名称过长
+- **问题现象**：
+  1. 通过 `opencode plugin` 逐个串行安装 Git 插件时，由于 OpenCode 内部 npm 包管理器对 Git 依赖处理不稳定，非常容易发生构建超时或崩溃（报错 `git dep preparation failed`）。
+  2. 安装成功后，WebUI 插件面板中显示的插件名称很长，甚至直接带着完整的 GitHub 链接（例如 `oh-my-opencode-slim@git+https://...`）。
+- **技术原因**：
+  1. npm 直接拉取 Git 代码进行 prepare 的过程极其缓慢且不可靠。
+  2. 脚本在 `/headless/.opencode/plugins.json` 中写入了完整的安装标识符（URL），导致 WebUI 加载时把 URL 识别为插件的名字展现出来。
+- **解决方法**：
+  1. 在 `setup_plugin.py` 中，改为将所有依赖以 `{包名: Git地址}` 形式写入 `/headless/.opencode/package.json`，并执行 `bun install` 批量拉取并链接到 `node_modules`。这不仅避免了超时构建错误，且耗时降为数秒级。
+  2. 修改 `write_plugin_list` 逻辑，在写入 `plugins.json` 时，通过 `.split('@')[0]` 过滤只保留简短、纯净的包名。重置并重启 WebUI 服务后，显示界面就会恢复整洁美观。
 
 ---
 
