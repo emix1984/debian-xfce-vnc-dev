@@ -19,7 +19,19 @@
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
   ```
-  Node 22 LTS 内置了支持的 WebIDL API，使 `better-sqlite3` 成功编译通过。
+  Node 22 LTS 内置了支持 of WebIDL API，使 `better-sqlite3` 成功编译通过。
+
+---
+
+### 1.3 `@pepk/mcp-memory-sqlite` 的 SSE 传输协议多连接冲突 (Already connected to a transport)
+- **问题现象**：
+  在将 SQLite 配置为 `remote`（HTTP/SSE）模式后，OpenCode 对其的多次查询或多连接会导致服务器抛出：
+  `Error: Already connected to a transport. Call close() before connecting to a new transport, or use a separate Protocol instance per connection.`
+  从而导致 sqlite MCP 服务连线断开，在 `opencode mcp list` 中显示为红色的 `✗ failed`。
+- **技术原因**：
+  该包的 SSE HTTP 服务器使用的是单例（Singleton）模式构建 `McpServer` 实例。当客户端（OpenCode WebUI 等）建立第二个 HTTP 连线或刷新連線時，伺服器會嘗試將已連接的 Server 單例重新連接到新傳輸通道，引發 MCP SDK 底層保護機制報措。
+- **解决方法**：
+  将其修改为 `local`（Stdio）模式。Stdio 管道是 1:1 的直接進程通信管道，OpenCode 獨立維護生命週期，不會引發併發連線衝突。
 
 ---
 

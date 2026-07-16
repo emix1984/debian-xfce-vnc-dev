@@ -33,7 +33,7 @@ graph TD
 
 ### 2.2 SQLite MCP 存储服务
 - **包名称**：`@pepk/mcp-memory-sqlite`
-- **运行模式**：Remote (HTTP 监听在 `3100` 端口)。由 `setup_mcp.py` 通过 `bunx` 后台拉起。
+- **运行模式**：Local (由 OpenCode 自动拉起，使用 Stdio 管道)。
 - **持久化路径**：`/headless/.config/opencode/opencode.sqlite`
 
 ### 2.3 Puppeteer 浏览器自动化服务

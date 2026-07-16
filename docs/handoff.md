@@ -9,7 +9,7 @@
 
 ### 1.2 已完成工作
 1. **Node.js 22 升级**：[container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) 现包含自动将 Node 升级到 v22 的机制，解决 node-gyp 与 undici 冲突。
-2. **SQLite MCP (remote) 自动修复**：SQLite 顺利在容器内以后台服务拉起并运行（port 3100）。
+2. **SQLite MCP (local) 自动修复**：SQLite 顺利在容器内以 Stdio 管道由 OpenCode 自动拉起并运行，完美解决了 `Already connected to a transport` 的多连线单例冲突。
 3. **Puppeteer MCP (local) 配置补全**：在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中，已成功注入 `ALLOW_DANGEROUS: "true"` 和 `--no-sandbox` 参数，解决了进程挂起问题。
 4. **追加 `base_config` 变量**：在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中，声明了包含插件默认配置信息的 `base_config` 字典，避免将其硬编码入 `opencode.jsonc` 产生 Schema 校验错误。
 

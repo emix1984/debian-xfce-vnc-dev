@@ -132,16 +132,10 @@ def build_mcp_servers(bunx_path: str) -> dict:
         },
         # SQLite-based memory for session compression / persistent small storage
         "sqlite": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{sqlite_port}/mcp",
+            "type": "local",
+            "command": [bunx_path, "@pepk/mcp-memory-sqlite"],
             "enabled": True,
-            "headers": {
-                "Accept": "application/json, text/event-stream",
-                "Content-Type": "application/json",
-            },
-            "_package": "@pepk/mcp-memory-sqlite",
-            "_args": ["--transport", "http", "--port", str(sqlite_port)],
-            "_env": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
+            "env": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
         },
         "sequential-thinking": {
             "type": "local",
