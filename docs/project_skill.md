@@ -63,6 +63,20 @@
 
 ---
 
+### 1.5 OpenCode DEB 桌面包与 CLI 可执行文件的职责分离及 4096 端口无法访问排障
+- **问题现象**：
+  在配置了本地 `opencode-desktop-linux-arm64.deb` 安装后，重建容器时启动后台 `opencode web --hostname 0.0.0.0 --port 4096` 失败，4096 端口无法响应，`opencode_web.log` 报错：
+  `FATAL:electron/shell/app/electron_main_delegate.cc:219] Running as root without --no-sandbox is not supported.`
+- **技术原因**：
+  1. `opencode-desktop-linux-arm64.deb` 安装的是 OpenCode 的 Electron 桌面 GUI 程序 (`/opt/OpenCode/ai.opencode.desktop`)，用于 Linux 桌面环境。
+  2. 之前脚本误将 `/usr/bin/opencode` 软链接到了桌面 GUI 程序，导致后台运行 `opencode web` 时错误拉起 Electron GUI，触发 root 免沙箱崩溃，未拉起 CLI HTTP 服务器。
+- **解决方法**：
+  1. 保持 `.deb` 桌面程序的正常安装，提供 VNC 桌面 GUI 支持。
+  2. 明确将 `/usr/bin/opencode` 软链接指向 CLI 二进制文件 `${OPENCODE_BIN}` (`/headless/.opencode/bin/opencode`)。
+  3. 在 `container-init.sh` 和 `restart_opencode.sh` 中显式通过 `${OPENCODE_BIN} web` 启动 4096 端口 HTTP WebUI 服务。
+
+---
+
 ## 2. 常用开发与维护命令
 
 ### 2.1 重新初始化并启动 MCP 配置

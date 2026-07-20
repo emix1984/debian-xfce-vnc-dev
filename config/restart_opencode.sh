@@ -54,7 +54,7 @@ if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
 fi
 
 cd /headless || true
-nohup opencode web --hostname 0.0.0.0 --port 4096 >> ${LOG_DIR}/opencode_web.log 2>&1 &
+nohup "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
 OPENCODE_PID=$!
 
 echo "[INFO] OpenCode started with PID: ${OPENCODE_PID}"

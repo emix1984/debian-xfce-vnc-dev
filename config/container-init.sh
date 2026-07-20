@@ -224,22 +224,17 @@ setup_opencode() {
 
   if [ -f "${LOCAL_DEB}" ]; then
     echo "[INFO] Found local OpenCode deb package: ${LOCAL_DEB}"
-    echo "[INFO] Installing local deb package..."
+    echo "[INFO] Installing local deb package for desktop GUI..."
     if apt-get update && apt-get install -y "${LOCAL_DEB}"; then
       echo "[INFO] Local OpenCode deb package installed successfully."
     else
       echo "[WARN] Local deb package installation failed; trying dpkg fallback..."
       dpkg -i "${LOCAL_DEB}" || apt-get install -f -y || echo "[ERROR] Local deb package installation failed."
     fi
-
-    # 创建命令软链接，保证全局可直接调 opencode
-    if [ -x "/opt/OpenCode/ai.opencode.desktop" ] && [ ! -f "/usr/bin/opencode" ]; then
-      ln -sf /opt/OpenCode/ai.opencode.desktop /usr/bin/opencode
-      echo "[INFO] Created symlink /usr/bin/opencode -> /opt/OpenCode/ai.opencode.desktop"
-    fi
   fi
 
-  if [ ! -x "${OPENCODE_BIN}" ] && ! command -v opencode >/dev/null 2>&1; then
+  # 确保 OpenCode CLI 核心命令行程序存在 (用于 WebUI 和 MCP)
+  if [ ! -x "${OPENCODE_BIN}" ]; then
     echo "[INFO] Installing OpenCode CLI as root..."
     if curl -fsSL https://opencode.ai/install | bash; then
       echo "[INFO] OpenCode CLI installed successfully."
@@ -249,7 +244,13 @@ setup_opencode() {
       curl -fsSL https://opencode.ai/install | bash -s -- --version 1.17.9 || echo "[ERROR] OpenCode fallback install also failed."
     fi
   else
-    echo "[INFO] OpenCode is already installed."
+    echo "[INFO] OpenCode CLI is ready at ${OPENCODE_BIN}."
+  fi
+
+  # 软链接 /usr/bin/opencode 指向 CLI 命令行程序
+  if [ -x "${OPENCODE_BIN}" ]; then
+    ln -sf "${OPENCODE_BIN}" /usr/bin/opencode
+    echo "[INFO] Symlinked /usr/bin/opencode -> ${OPENCODE_BIN}"
   fi
 
   # 配置全局 Git，OpenCode 依赖 Git 提交记录，如果没有身份信息会报错
@@ -257,19 +258,20 @@ setup_opencode() {
   git config --global user.name "OpenCode"
   git config --global init.defaultBranch main
 
-  # 确保 PATH 包含 opencode
+  # 确保 PATH 包含 opencode bin
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
-  # 使用 nohup 启动 opencode web 并在后台运行
-  if ! command -v opencode >/dev/null 2>&1; then
-    echo "[WARN] opencode not found in PATH; skipping start."
+  # 使用 nohup 启动 opencode web 并在后台运行 (明确使用 CLI 二进制文件)
+  if [ ! -x "${OPENCODE_BIN}" ]; then
+    echo "[WARN] OpenCode CLI executable not found at ${OPENCODE_BIN}; skipping start."
     return 0
   fi
 
   if pgrep -f "opencode web" >/dev/null 2>&1; then
     echo "[INFO] OpenCode Web UI is already running."
   else
-    nohup opencode web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
+    cd /headless || true
+    nohup "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
     echo "[INFO] OpenCode Web UI started with nohup in background."
   fi
 }
