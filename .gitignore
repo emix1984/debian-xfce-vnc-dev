@@ -33,3 +33,6 @@ config/.opencode
 workspace/*
 !workspace/.gitkeep
 workspace_*.bak/
+
+# Packages
+*.deb

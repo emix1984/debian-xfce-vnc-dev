@@ -220,17 +220,36 @@ setup_opencode() {
     echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
   fi
 
-  if [ ! -x "${OPENCODE_BIN}" ]; then
-    echo "[INFO] Installing OpenCode as root..."
+  LOCAL_DEB="${ACTUAL_HOME}/Desktop/config/opencode-desktop-linux-arm64.deb"
+
+  if [ -f "${LOCAL_DEB}" ]; then
+    echo "[INFO] Found local OpenCode deb package: ${LOCAL_DEB}"
+    echo "[INFO] Installing local deb package..."
+    if apt-get update && apt-get install -y "${LOCAL_DEB}"; then
+      echo "[INFO] Local OpenCode deb package installed successfully."
+    else
+      echo "[WARN] Local deb package installation failed; trying dpkg fallback..."
+      dpkg -i "${LOCAL_DEB}" || apt-get install -f -y || echo "[ERROR] Local deb package installation failed."
+    fi
+
+    # 创建命令软链接，保证全局可直接调 opencode
+    if [ -x "/opt/OpenCode/ai.opencode.desktop" ] && [ ! -f "/usr/bin/opencode" ]; then
+      ln -sf /opt/OpenCode/ai.opencode.desktop /usr/bin/opencode
+      echo "[INFO] Created symlink /usr/bin/opencode -> /opt/OpenCode/ai.opencode.desktop"
+    fi
+  fi
+
+  if [ ! -x "${OPENCODE_BIN}" ] && ! command -v opencode >/dev/null 2>&1; then
+    echo "[INFO] Installing OpenCode CLI as root..."
     if curl -fsSL https://opencode.ai/install | bash; then
-      echo "[INFO] OpenCode installed successfully."
+      echo "[INFO] OpenCode CLI installed successfully."
     else
       echo "[WARN] Failed to fetch latest version info (likely GitHub API rate limit)."
       echo "[INFO] Retrying installation with explicit fallback version (1.17.9)..."
       curl -fsSL https://opencode.ai/install | bash -s -- --version 1.17.9 || echo "[ERROR] OpenCode fallback install also failed."
     fi
   else
-    echo "[INFO] OpenCode is already installed for root."
+    echo "[INFO] OpenCode is already installed."
   fi
 
   # 配置全局 Git，OpenCode 依赖 Git 提交记录，如果没有身份信息会报错

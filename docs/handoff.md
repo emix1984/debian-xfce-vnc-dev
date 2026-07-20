@@ -12,6 +12,7 @@
 2. **SQLite MCP (local) 自动修复**：SQLite 顺利在容器内以 Stdio 管道由 OpenCode 自动拉起并运行，完美解决了 `Already connected to a transport` 的多连线单例冲突。
 3. **Puppeteer MCP (local) 配置补全**：在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中，已成功注入 `ALLOW_DANGEROUS: "true"` 和 `--no-sandbox` 参数，解决了进程挂起问题。
 4. **追加 `base_config` 变量**：在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中，声明了包含插件默认配置信息的 `base_config` 字典，避免将其硬编码入 `opencode.jsonc` 产生 Schema 校验错误。
+5. **支持本地 `.deb` 包极速安装 OpenCode**：在 [container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) 中加入了优先检测并使用 `apt-get` 安装本地 `config/opencode-desktop-linux-arm64.deb` 软件包的逻辑，实现离线/低延迟极速安装。
 
 ---
 
