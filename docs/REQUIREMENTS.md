@@ -12,6 +12,8 @@
 | **追加 `base_config` 基础开发配置** | `已完成` | [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) | 在 Python 代码中添加了全局 `base_config` 字典定义，用于插件及扩展模块开发时的配置查阅。 |
 | **优化插件安装率与UI长名字问题** | `已完成` | [setup_plugin.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_plugin.py) | 采用 `bun install` 批量加载到项目依赖中，并在 `plugins.json` 写入时过滤掉长 URL，实现 100% 安装成功率与清爽的 WebUI 显示。 |
 | **支持本地 `.deb` 安装 OpenCode** | `已完成` | [container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) | 修改 `setup_opencode` 函数优先通过 `apt-get` / `dpkg` 安装本地 `config/opencode-desktop-linux-arm64.deb` 软件包，并自动配置软链接。 |
+| **精准控制 OpenCode CLI 版本为 v1.17.10** | `已完成` | [container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) | 锁定 `OPENCODE_TARGET_VERSION="1.17.10"`，精准控制 CLI 版本为 1.17.10，避免自动升级并确保与桌面包平滑配合。 |
+| **规范 Agent 配置与忽略规则** | `已完成` | [.gitignore](file:///Users/esinternational/github/debian-xfce-vnc-dev/.gitignore), [docs/agent.md](file:///Users/esinternational/github/debian-xfce-vnc-dev/docs/agent.md) | 将 `.agents/` 加入 `.gitignore`，将 `agent.md` 规范平移至 `docs/agent.md` 并更新路径引用。 |
 
 ---
 
