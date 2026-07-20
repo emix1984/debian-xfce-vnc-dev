@@ -20,6 +20,7 @@ services:
       - TZ=${TZ:-Asia/Seoul}
       - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x1024}
       - VNC_PW=${VNC_PW:-1234}
+      - OPENCODE_WEBUI_TITLE=${OPENCODE_WEBUI_TITLE:-OpenCode}
 
     volumes:
       - ./config/container-init.sh:/dockerstartup/custom/container-init.sh:ro

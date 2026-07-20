@@ -100,8 +100,69 @@ def ensure_bunx(log_file: Optional[Path] = None) -> str:
     log(f"Successfully installed bun, bunx at: {bunx_path}", "INFO", log_file)
     return bunx_path
 
+def patch_webui_title(binary_path: Optional[Path] = None, title_str: Optional[str] = None, log_file: Optional[Path] = None) -> bool:
+    """Patch the HTML head title in OpenCode CLI binary while keeping total file byte size unchanged."""
+    if binary_path is None:
+        binary_path = OPENCODE_HOME / "bin" / "opencode"
+    if not binary_path.exists():
+        return False
+
+    if title_str is None:
+        title_str = os.getenv("OPENCODE_WEBUI_TITLE", "").strip()
+    if not title_str or title_str == "OpenCode":
+        return True
+
+    try:
+        with open(binary_path, "rb") as f:
+            content = f.read()
+
+        prefix = b"<title>OpenCode</title>"
+        idx = content.find(prefix)
+        if idx == -1:
+            target_tag = f"<title>{title_str}</title>".encode("utf-8")
+            if target_tag in content:
+                log(f"WebUI HTML title is already patched to '{title_str}'", "INFO", log_file)
+                return True
+            import re
+            m = re.search(rb"<title>.*?</title>", content)
+            if not m:
+                log("HTML <title> tag pattern not found in OpenCode binary", "WARN", log_file)
+                return False
+            idx = m.start()
+            prefix = m.group(0)
+
+        window_size = 350
+        old_block = content[idx:idx + window_size]
+        tail = old_block[len(prefix):]
+        new_tag = f"<title>{title_str}</title>".encode("utf-8")
+        new_block = new_tag + tail
+
+        if len(new_block) > len(old_block):
+            new_block = new_block[:len(old_block)]
+        else:
+            new_block = new_block + b" " * (len(old_block) - len(new_block))
+
+        new_content = content[:idx] + new_block + content[idx + window_size:]
+        if len(new_content) != len(content):
+            log(f"Patch error: file size mismatch ({len(content)} != {len(new_content)})", "WARN", log_file)
+            return False
+
+        # Kill running processes so Linux releases the binary file handle
+        subprocess.run(["pkill", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1)
+
+        with open(binary_path, "wb") as f:
+            f.write(new_content)
+
+        log(f"Successfully patched WebUI HTML title to '{title_str}'", "INFO", log_file)
+        return True
+    except Exception as e:
+        log(f"Error patching WebUI title: {e}", "WARN", log_file)
+        return False
+
 def restart_webui(port: int = 4096, log_file: Optional[Path] = None) -> None:
     """Restart OpenCode WebUI"""
+    patch_webui_title(log_file=log_file)
     restart_script = Path(__file__).resolve().parent / "restart_opencode.sh"
     if restart_script.exists():
         log(f"Restarting WebUI via {restart_script}...", "INFO", log_file)
@@ -135,3 +196,4 @@ def restart_webui(port: int = 4096, log_file: Optional[Path] = None) -> None:
             shell=True,
         )
         log("[OK] WebUI launched directly", "INFO", log_file)
+

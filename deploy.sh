@@ -76,6 +76,7 @@ OPENCODE_PORT=4096
 VNC_RESOLUTION=1280x720
 VNC_PW=1234
 TZ=Asia/Seoul
+OPENCODE_WEBUI_TITLE=OpenCode
 
 EOF
     echo -e "${GREEN}[OK] Private configuration file ($CONFIG_FILE) created.${NC}"
@@ -102,6 +103,7 @@ EOF
   VNC_RESOLUTION="${VNC_RESOLUTION:-1280x1024}"
   VNC_PW="${VNC_PW:-1234}"
   TZ="${TZ:-Asia/Seoul}"
+  OPENCODE_WEBUI_TITLE="${OPENCODE_WEBUI_TITLE:-OpenCode}"
 }
 
 # --- Save Single Parameter ---
@@ -149,7 +151,7 @@ show_dashboard() {
   echo -e " VNC Desktop client: ${CYAN}vnc://localhost:${VNC_PORT}${NC}"
   echo -e " noVNC Browser:      ${CYAN}http://localhost:${NOVNC_PORT}${NC}"
   echo -e " SSH Console login:  ${CYAN}ssh default@localhost -p ${SSH_PORT}${NC} (Password: ${BOLD}${VNC_PW}${NC})"
-  echo -e " OpenCode WebUI:     ${CYAN}http://localhost:${OPENCODE_PORT}${NC}"
+  echo -e " OpenCode WebUI:     ${CYAN}http://localhost:${OPENCODE_PORT}${NC} (Title: ${BOLD}${OPENCODE_WEBUI_TITLE}${NC})"
   echo -e " Custom Ports:       ${CYAN}9980-9990${NC} (后期特殊用途)"
 }
 
@@ -166,6 +168,7 @@ configure_settings() {
     echo -e "5) VNC Desktop Resolution: ${CYAN}${VNC_RESOLUTION}${NC}"
     echo -e "6) VNC/SSH Password      : ${CYAN}${VNC_PW}${NC}"
     echo -e "7) Container Timezone    : ${CYAN}${TZ}${NC}"
+    echo -e "8) OpenCode WebUI Title  : ${CYAN}${OPENCODE_WEBUI_TITLE}${NC}"
     echo -e "0) Back to Main Menu"
     echo -e "\n================================================================"
     echo -n "Select parameter to modify [0-8]: "
@@ -206,6 +209,11 @@ configure_settings() {
         echo -n "Enter Timezone (e.g. Asia/Shanghai) [current: ${TZ}]: "
         read -r input_val
         if [ -n "$input_val" ]; then set_config_val "TZ" "$input_val"; fi
+        ;;
+      8)
+        echo -n "Enter OpenCode WebUI Head Title [current: ${OPENCODE_WEBUI_TITLE}]: "
+        read -r input_val
+        if [ -n "$input_val" ]; then set_config_val "OPENCODE_WEBUI_TITLE" "$input_val"; fi
         ;;
       0)
         break

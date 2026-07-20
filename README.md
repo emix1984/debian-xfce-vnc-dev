@@ -96,7 +96,7 @@ docker compose -f docker-compose-dev.yml up -d
 ### 2. 自动化配置脚本群 (config 目录)
 
 * **opencode_utils.py**：
-  提供统一的环境变量解析、日志格式化、`bun`/`bunx` 工具自动定位与安装、以及 Web UI 热重启的公共核心依赖库。
+  提供统一的环境变量解析、日志格式化、`bun`/`bunx` 工具自动定位与安装、Web UI HTML `<title>` 标签页标题动态修补（`patch_webui_title`）、以及 Web UI 热重启的公共核心依赖库。
 
 * **setup_mcp.py**：
   负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。同时集成了：

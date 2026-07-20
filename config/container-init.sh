@@ -240,6 +240,12 @@ setup_opencode() {
     echo "[INFO] Symlinked /usr/bin/opencode -> ${OPENCODE_BIN}"
   fi
 
+  # 如果设置了 OPENCODE_WEBUI_TITLE 且非默认，对 OpenCode WebUI 的 HTML head title 进行修补
+  if [ -n "${OPENCODE_WEBUI_TITLE}" ] && [ "${OPENCODE_WEBUI_TITLE}" != "OpenCode" ]; then
+    echo "[INFO] Patching OpenCode WebUI HTML title to: ${OPENCODE_WEBUI_TITLE}"
+    python3 -c "import sys; sys.path.insert(0, '${ACTUAL_HOME}/Desktop/config'); from opencode_utils import patch_webui_title; patch_webui_title()" || echo "[WARN] Failed to patch WebUI title"
+  fi
+
   # 配置全局 Git，OpenCode 依赖 Git 提交记录，如果没有身份信息会报错
   git config --global user.email "dev@opencode.local"
   git config --global user.name "OpenCode"

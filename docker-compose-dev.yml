@@ -24,9 +24,10 @@ services:
 
     environment:
       # 在 dev 模式下，直接在此处硬编码修改开发所需的环境变量，直观且便于随时调整
-      - TZ=Asia/Seoul
-      - VNC_RESOLUTION=1280x1024
-      - VNC_PW=1234
+      - TZ=${TZ:-Asia/Seoul}
+      - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x1024}
+      - VNC_PW=${VNC_PW:-1234}
+      - OPENCODE_WEBUI_TITLE=${OPENCODE_WEBUI_TITLE:-OpenCode}
 
     volumes:
       - ./config/container-init.sh:/dockerstartup/custom/container-init.sh:ro
