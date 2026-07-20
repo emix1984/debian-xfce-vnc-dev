@@ -34,5 +34,8 @@ workspace/*
 !workspace/.gitkeep
 workspace_*.bak/
 
+# Agents & Customizations
+.agents/
+
 # Packages
 *.deb
