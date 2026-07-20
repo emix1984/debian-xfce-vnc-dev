@@ -233,18 +233,18 @@ setup_opencode() {
     fi
   fi
 
-  # 确保 OpenCode CLI 核心命令行程序存在 (用于 WebUI 和 MCP)
-  if [ ! -x "${OPENCODE_BIN}" ]; then
-    echo "[INFO] Installing OpenCode CLI as root..."
-    if curl -fsSL https://opencode.ai/install | bash; then
-      echo "[INFO] OpenCode CLI installed successfully."
-    else
-      echo "[WARN] Failed to fetch latest version info (likely GitHub API rate limit)."
-      echo "[INFO] Retrying installation with explicit fallback version (1.17.9)..."
-      curl -fsSL https://opencode.ai/install | bash -s -- --version 1.17.9 || echo "[ERROR] OpenCode fallback install also failed."
-    fi
+  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.20，与本地 deb 包版本保持一致)
+  OPENCODE_TARGET_VERSION="1.17.20"
+  INSTALLED_CLI_VER=""
+  if [ -x "${OPENCODE_BIN}" ]; then
+    INSTALLED_CLI_VER="$("${OPENCODE_BIN}" --version 2>/dev/null || true)"
+  fi
+
+  if [ "${INSTALLED_CLI_VER}" != "${OPENCODE_TARGET_VERSION}" ]; then
+    echo "[INFO] Installing OpenCode CLI version ${OPENCODE_TARGET_VERSION}..."
+    curl -fsSL https://opencode.ai/install | bash -s -- --version "${OPENCODE_TARGET_VERSION}" || echo "[ERROR] Failed to install OpenCode CLI version ${OPENCODE_TARGET_VERSION}"
   else
-    echo "[INFO] OpenCode CLI is ready at ${OPENCODE_BIN}."
+    echo "[INFO] OpenCode CLI is ready at ${OPENCODE_BIN} (version ${INSTALLED_CLI_VER})."
   fi
 
   # 软链接 /usr/bin/opencode 指向 CLI 命令行程序
