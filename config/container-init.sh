@@ -220,19 +220,6 @@ setup_opencode() {
     echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
   fi
 
-  LOCAL_DEB="${ACTUAL_HOME}/Desktop/config/opencode-desktop-linux-arm64.deb"
-
-  if [ -f "${LOCAL_DEB}" ]; then
-    echo "[INFO] Found local OpenCode deb package: ${LOCAL_DEB}"
-    echo "[INFO] Installing local deb package for desktop GUI..."
-    if apt-get update && apt-get install -y "${LOCAL_DEB}"; then
-      echo "[INFO] Local OpenCode deb package installed successfully."
-    else
-      echo "[WARN] Local deb package installation failed; trying dpkg fallback..."
-      dpkg -i "${LOCAL_DEB}" || apt-get install -f -y || echo "[ERROR] Local deb package installation failed."
-    fi
-  fi
-
   # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.10)
   OPENCODE_TARGET_VERSION="1.17.10"
   INSTALLED_CLI_VER=""

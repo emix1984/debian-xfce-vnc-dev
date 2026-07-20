@@ -52,9 +52,8 @@ graph TD
   - 改用批量聲明依賴並在 `/headless/.opencode/` 執行 `bun install`。這會以 100% 成功率且數秒內完成所有插件及原生依賴的極速載入。
   - 將寫入 `/headless/.opencode/plugins.json` 的清單精簡為純淨、無網址的簡短包名。重啟 OpenCode 後，WebUI 即可載入命名乾淨、高雅清爽的插件列表。
 
-### 2.5 OpenCode 安装源与本地 DEB 包集成
+### 2.5 OpenCode 版本控制与 CLI 部署
 - **运行模式**：在 `container-init.sh` 中的 `setup_opencode` 函数中处理。
 - **配置与优势**：
-  - 优先检测本地挂载路径 `/headless/Desktop/config/opencode-desktop-linux-arm64.deb` 软件包。若存在，直接使用 `apt-get install -y` 极速完成离线安装与系统依赖自动补全，避免因网络波动或 GitHub API 限速导致的安装中断。
-  - 自动为系统添加全局软链接 `/usr/bin/opencode -> /opt/OpenCode/ai.opencode.desktop`，保证命令行环境与后台 WebUI 服务调用的无缝无阻。
-  - 若本地 DEB 包缺失，则平滑降级至在线 `curl` 脚本完成远程自动安装。
+  - 自动检测并精准锁定 OpenCode CLI 核心版本为 `v1.17.10`（设置 `OPENCODE_TARGET_VERSION="1.17.10"`），防止 CLI 自动升级导致版本漂移。
+  - 自动配置软链接 `/usr/bin/opencode -> /headless/.opencode/bin/opencode`，保证命令行环境与后台 WebUI 服务无缝调用，且端口 4096 WebUI 稳定流畅无阻。

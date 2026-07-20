@@ -89,7 +89,7 @@ docker compose -f docker-compose-dev.yml up -d
 ## 核心底层机制解析
 
 ### 1. container-init.sh 引导机制
-* **本地 DEB 套件极速安装与 CLI 版本控制**：安装 OpenCode 核心服务时，优先自动检测并安装本地 `config/opencode-desktop-linux-arm64.deb` 桌面套件。同时，脚本会将 OpenCode CLI 核心版本精准控制在 **`v1.17.10`**（与桌面包版本 1.17.20 平滑协同），确保 100% 成功完成初始化与端口 4096 WebUI 的无阻监听。
+* **CLI 版本精准控制**：安装 OpenCode 核心服务时，脚本会将 OpenCode CLI 核心版本精准控制在 **`v1.17.10`**，确保 100% 成功完成初始化与端口 4096 WebUI 的无阻监听。
 * **用户与权限统一**：自动将 `root` 用户的 HOME 目录修正为 `/headless`，与 VNC 桌面环境对齐，避免因双 HOME 路径造成的权限混乱或项目列表撕裂。
 * **隔离策略**：OpenCode 的全局配置文件统一约束在 `/headless/.config/opencode`，与用户私有源码区完全分离。
 
