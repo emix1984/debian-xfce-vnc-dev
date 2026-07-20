@@ -55,5 +55,5 @@ graph TD
 ### 2.5 OpenCode 版本控制与 CLI 部署
 - **运行模式**：在 `container-init.sh` 中的 `setup_opencode` 函数中处理。
 - **配置与优势**：
-  - 自动检测并精准锁定 OpenCode CLI 核心版本为 `v1.17.10`（设置 `OPENCODE_TARGET_VERSION="1.17.10"`），防止 CLI 自动升级导致版本漂移。
+  - 自动检测并精准锁定 OpenCode CLI 核心版本为 `v1.17.20`（设置 `OPENCODE_TARGET_VERSION="1.17.20"`），防止 CLI 自动升级导致版本漂移。
   - 自动配置软链接 `/usr/bin/opencode -> /headless/.opencode/bin/opencode`，保证命令行环境与后台 WebUI 服务无缝调用，且端口 4096 WebUI 稳定流畅无阻。

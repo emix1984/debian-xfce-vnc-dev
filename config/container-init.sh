@@ -220,8 +220,8 @@ setup_opencode() {
     echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
   fi
 
-  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.10)
-  OPENCODE_TARGET_VERSION="1.17.10"
+  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.20)
+  OPENCODE_TARGET_VERSION="1.17.20"
   INSTALLED_CLI_VER=""
   if [ -x "${OPENCODE_BIN}" ]; then
     INSTALLED_CLI_VER="$("${OPENCODE_BIN}" --version 2>/dev/null || true)"
