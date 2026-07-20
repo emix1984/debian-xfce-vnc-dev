@@ -233,8 +233,8 @@ setup_opencode() {
     fi
   fi
 
-  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.20，与本地 deb 包版本保持一致)
-  OPENCODE_TARGET_VERSION="1.17.20"
+  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.10)
+  OPENCODE_TARGET_VERSION="1.17.10"
   INSTALLED_CLI_VER=""
   if [ -x "${OPENCODE_BIN}" ]; then
     INSTALLED_CLI_VER="$("${OPENCODE_BIN}" --version 2>/dev/null || true)"
