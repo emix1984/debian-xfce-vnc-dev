@@ -14,6 +14,7 @@
 | **支持本地 `.deb` 安装 OpenCode** | `已完成` | [container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) | 修改 `setup_opencode` 函数优先通过 `apt-get` / `dpkg` 安装本地 `config/opencode-desktop-linux-arm64.deb` 软件包，并自动配置软链接。 |
 | **精准控制 OpenCode CLI 版本为 v1.17.10** | `已完成` | [container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) | 锁定 `OPENCODE_TARGET_VERSION="1.17.10"`，精准控制 CLI 版本为 1.17.10，避免自动升级并确保与桌面包平滑配合。 |
 | **规范 Agent 配置与忽略规则** | `已完成` | [.gitignore](file:///Users/esinternational/github/debian-xfce-vnc-dev/.gitignore), [docs/agent.md](file:///Users/esinternational/github/debian-xfce-vnc-dev/docs/agent.md) | 将 `.agents/` 加入 `.gitignore`，将 `agent.md` 规范平移至 `docs/agent.md` 并更新路径引用。 |
+| **统一 Workspace 相对路径挂载** | `已完成` | [docker-compose.yml](file:///Users/esinternational/github/debian-xfce-vnc-dev/docker-compose.yml), [docker-compose-dev.yml](file:///Users/esinternational/github/debian-xfce-vnc-dev/docker-compose-dev.yml) | 将桌面 `workspace` 挂载路径从外部绝对路径统一调整为项目相对路径 `./workspace:/headless/Desktop/workspace`。 |
 
 ---
 
