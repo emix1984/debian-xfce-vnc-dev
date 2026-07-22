@@ -13,7 +13,6 @@
 ```text
 debian-xfce-vnc-dev/
 ├── docker-compose.yml          # 容器编排 — 端口映射、目录挂载及系统变量
-├── docker-compose-dev.yml      # 开发专用编排 — 剥离了脚本依赖，硬编码变量，取消了自动重启，方便本地调试
 ├── deploy.sh                   # 工作站交互式控制面板 — 自动化管理容器与配置
 ├── .deploy_config              # (自动生成) 私有配置文件，隔离环境变量，防覆盖
 ├── .gitignore                  # 高度优化的 Git 忽略规则，防止业务代码污染基础架构
@@ -66,10 +65,10 @@ debian-xfce-vnc-dev/
 ```
 在菜单中选择 `1) Start/Up Environment` 启动容器。
 
-**方式二：以开发模式启动（推荐调试排错）**
-直接使用开发专用配置启动，该模式剥离了外部变量依赖并关闭了自动重启，适合直接观察报错日志：
+**方式二：使用原生 Docker Compose 启动（适合脱离面板运行）**
+直接使用原生编排启动，Compose 会自动加载默认端口及参数：
 ```bash
-docker compose -f docker-compose-dev.yml up -d
+docker compose up -d
 ```
 
 ### 2. 交互式使用 (VNC / 网页端)
