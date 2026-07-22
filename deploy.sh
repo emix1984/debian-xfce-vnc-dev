@@ -226,74 +226,7 @@ configure_settings() {
   done
 }
 
-# --- Run Workspace Initialization Scripts inside Container ---
-run_workspace_scripts() {
-  if ! is_running; then
-    echo -e "${RED}[ERROR] Container is not running. Please start the environment first.${NC}"
-    read -n 1 -s -r -p "Press any key to return..."
-    return
-  fi
 
-  while true; do
-    show_banner
-    echo -e "${BOLD}--- AI Agent Workspace Init Submenu ---${NC}"
-    echo -e "Configure the workspace components inside the running container:\n"
-    echo -e "1) Install MCP Drivers & System Dependencies (setup_mcp.py)"
-    echo -e "2) Install OpenCode Web Extensions/Plugins (setup_plugin.py)"
-    echo -e "3) Import Agent Skill Definitions (setup_skill.py)"
-    echo -e "4) [Run All] Sequential Setup (MCP -> Plugins -> Skill)"
-    echo -e "5) Restart OpenCode Service Process (restart_opencode.sh)"
-    echo -e "0) Back to Main Menu"
-    echo -e "\n================================================================"
-    echo -n "Select option [0-6]: "
-    read -r init_opt
-
-    case "$init_opt" in
-      1)
-        echo -e "\n${BLUE}[1/1] Installing MCP dependencies...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_mcp.py"
-        read -n 1 -s -r -p "Press any key to continue..."
-        ;;
-      2)
-        echo -e "\n${BLUE}[1/1] Installing OpenCode plugins...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_plugin.py"
-        read -n 1 -s -r -p "Press any key to continue..."
-        ;;
-      3)
-        echo -e "\n${BLUE}[1/1] Importing Agent skills...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_skill.py"
-        read -n 1 -s -r -p "Press any key to continue..."
-        ;;
-      4)
-        echo -e "\n${GREEN}Starting Sequential Setup Chain...${NC}"
-        
-        echo -e "\n${BLUE}[Step 1/3] Installing MCP dependencies...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_mcp.py"
-        
-        echo -e "\n${BLUE}[Step 2/3] Installing OpenCode plugins...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_plugin.py"
-        
-        echo -e "\n${BLUE}[Step 3/3] Importing Agent skills...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && python3 setup_skill.py"
-        
-        echo -e "\n${GREEN}[SUCCESS] Sequential initialization completed!${NC}"
-        read -n 1 -s -r -p "Press any key to continue..."
-        ;;
-      5)
-        echo -e "\n${BLUE}[1/1] Restarting OpenCode server...${NC}"
-        $DOCKER_COMPOSE_CMD exec -it debian-xfce-vnc bash -c "cd /headless/Desktop/config && bash restart_opencode.sh"
-        read -n 1 -s -r -p "Press any key to continue..."
-        ;;
-      0)
-        break
-        ;;
-      *)
-        echo -e "${RED}Invalid option!${NC}"
-        sleep 1
-        ;;
-    esac
-  done
-}
 
 # --- Enter Container Bash Console ---
 enter_console() {
@@ -337,15 +270,14 @@ main_menu() {
     show_dashboard
     
     echo -e "\n${BOLD}--- Controls & Options ---${NC}"
-    echo -e "1) Start/Up Environment        6) Enter Container Shell Console"
-    echo -e "2) Stop/Down Environment       7) Edit Config Parameters (.deploy_config)"
-    echo -e "3) Restart Environment         8) Full Reset & Clean Volumes"
-    echo -e "4) View Container Logs         9) Force Recreate & Start"
-    echo -e "5) Run Workspace Init Scripts  10) Force Update from GitHub"
-    echo -e "11) Backup & Clean Workspace   12) View Environment & Paths"
+    echo -e "1) Start/Up Environment        6) Edit Config Parameters (.deploy_config)"
+    echo -e "2) Stop/Down Environment       7) Full Reset & Clean Volumes"
+    echo -e "3) Restart Environment         8) Force Recreate & Start"
+    echo -e "4) View Container Logs         9) Force Update from GitHub"
+    echo -e "5) Enter Container Shell       10) View Environment & Paths"
     echo -e "0) Exit"
     echo -e "================================================================"
-    echo -n "Select option (0-12): "
+    echo -n "Select option (0-10): "
     read -r menu_opt
 
     case "$menu_opt" in
@@ -372,15 +304,12 @@ main_menu() {
         $DOCKER_COMPOSE_CMD logs -f
         ;;
       5)
-        run_workspace_scripts
-        ;;
-      6)
         enter_console
         ;;
-      7)
+      6)
         configure_settings
         ;;
-      8)
+      7)
         echo -e "\n${RED}${BOLD}[WARNING] This will stop the containers and delete all named volumes.${NC}"
         echo -n "Are you sure you want to proceed? (y/N): "
         read -r confirm_reset
@@ -393,13 +322,13 @@ main_menu() {
         fi
         sleep 2
         ;;
-      9)
+      8)
         echo -e "\n${BLUE}Force recreating and spinning up containers...${NC}"
         $DOCKER_COMPOSE_CMD up -d --force-recreate
         echo -e "${GREEN}[OK] Docker Compose force-recreate finished.${NC}"
         sleep 2
         ;;
-      10)
+      9)
         echo -e "\n${RED}${BOLD}[WARNING] This will DISCARD all local changes and pull the latest code from GitHub.${NC}"
         echo -n "Are you sure you want to proceed? (y/N): "
         read -r confirm_pull
@@ -414,27 +343,7 @@ main_menu() {
         fi
         sleep 2
         ;;
-      11)
-        echo -e "\n${RED}${BOLD}[WARNING] This will backup and wipe your current 'workspace' directory.${NC}"
-        echo -e "Your current workspace will be renamed to 'workspace_<timestamp>.bak'."
-        echo -e "A fresh, empty 'workspace' folder will be created in its place."
-        echo -n "Type 'yes' to confirm and proceed: "
-        read -r confirm_clean
-        if [[ "$confirm_clean" == "yes" ]]; then
-          timestamp=$(date +%Y%m%d_%H%M%S)
-          bak_dir="workspace_${timestamp}.bak"
-          echo -e "${BLUE}Moving 'workspace' to '${bak_dir}'...${NC}"
-          if [ -d "workspace" ]; then
-            mv workspace "$bak_dir"
-          fi
-          mkdir -p workspace
-          echo -e "${GREEN}[OK] Workspace cleaned and backed up.${NC}"
-        else
-          echo -e "Workspace cleanup canceled."
-        fi
-        sleep 2
-        ;;
-      12)
+      10)
         if ! is_running; then
           echo -e "\n${RED}[ERROR] Container is not running. Please start the environment first to view dynamic system info.${NC}"
         else
@@ -462,7 +371,7 @@ main_menu() {
         exit 0
         ;;
       *)
-        echo -e "${RED}Invalid option! Please enter a choice between 0 and 12.${NC}"
+        echo -e "${RED}Invalid option! Please enter a choice between 0 and 10.${NC}"
         sleep 1.5
         ;;
     esac

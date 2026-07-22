@@ -33,9 +33,7 @@ debian-xfce-vnc-dev/
 在宿主机项目根目录下执行 `./deploy.sh` 即可启动图形化终端控制面板，提供以下一键式服务：
 
 - **启停/重置环境**：优雅地启动、停止或彻底清空容器与数据卷。
-- **自定义参数设置**：修改 VNC 端口、分辨率（默认 1280x1024）、连接密码。
-- **一键配置 Agent 工作流**：按序自动执行安装 MCP、载入插件与技能包。
-- **工作区备份与清理**：在执行破坏性测试后，可一键备份现有工作区（生成 `workspace_*.bak` 文件夹）并秒级重建纯净的全新工作区。
+- **自定义参数设置**：修改 VNC 端口、分辨率（默认 1280x1024）、连接密码、WebUI 标题。
 - **系统环境状态**：动态穿透容器，一键查看内部操作系统版本、Python 版本、OpenCode 版本及核心配置文件挂载路径。
 
 ---
@@ -76,12 +74,12 @@ docker compose up -d
 * 桌面上挂载的 `workspace` 文件夹是一个纯净的开发沙盒；`config` 文件夹内包含了所有的系统安装与连接脚本。
 
 ### 3. 配置 OpenCode 智能体环境
-在 `./deploy.sh` 面板菜单中选择 `5) Run Workspace Init Scripts`，然后选择 `4) [Run All] Sequential Setup` 以自动按序完成：
-1. **MCP 驱动安装**：利用 `--with-deps` 补全 `Playwright` 浏览器在 headless 环境下的底层依赖。
-2. **插件安装**：载入如 `oh-my-opencode-slim` 等高级开发能力插件。
-3. **技能包导入**：赋予 Agent 任务拆解、网页访问、代码对比等各项技能。
+容器首次启动时会自动执行 `config/container-init.sh` 脚本。该脚本会自动补齐 Node.js 22、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 自动生成 OpenCode 的 MCP 配置，默认启用本地文件系统、Puppeteer 浏览器、记忆与远程 PDF/调试/系统监控等服务。
 
-此外，容器首次启动时会自动执行 `config/container-init.sh`。该脚本会补齐 Node.js 20、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 生成 OpenCode 的 MCP 配置，默认启用本地文件系统、GitHub、浏览器、记忆与远程 PDF/调试/系统监控等服务；如需自定义工作区路径或端口，可通过环境变量 `MCP_WORKSPACE_PATH`、`MCP_PDF_PORT`、`MCP_DEBUG_PORT`、`MCP_SYSTEM_MONITOR_PORT` 和 `MCP_SQLITE_PORT` 调整。
+如果需要手动运行或微调，可以在容器内的 `/headless/Desktop/config/` 路径下手动运行对应的初始化脚本：
+- **MCP 服务配置**：`python3 setup_mcp.py`
+- **插件装载**：`python3 setup_plugin.py`
+- **技能包导入**：`python3 setup_skill.py`
 
 ---
 
