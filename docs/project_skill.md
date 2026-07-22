@@ -77,6 +77,17 @@
 
 ---
 
+### 1.6 Bun 独立可执行二进制文件的等长字节修改机制
+- **问题现象**：
+  OpenCode 官方 WebUI 页面在 `headless/.opencode/bin/opencode` 二进制文件中硬编码了 `<title>OpenCode</title>`。如果直接用普通的字符串替换来修改此标题，当修改后的字符串长度与原字符串不一致时，启动 binary 会直接报错：
+  `error: Script not found "web"`
+- **技术原因**：
+  `opencode` 是由 Bun 构建的独立可执行文件（Bun Standalone Executable），它的二进制文件尾部附加了 JS/ZIP 资源包，且在特定字节偏移位置有固定的大小和索引。若修改文件字节长度，会导致偏移量失效，Bun 退化为普通 CLI 并寻找本地的 `web` 脚本。
+- **解决方法**：
+  采用**精确字节等长修补法**。在 [config/opencode_utils.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/opencode_utils.py) 中，定位到 `<title>...</title>` 所在的 350 字节窗口，将新的 `<title>新标题</title>` 写入该窗口，若长度不足，用空格补齐以填充剩余字节，若长度超出，则截断，确保文件总大小 **100% 字节保持原样不变**。写入前使用 `pkill -f "opencode web"` 確保釋放二進制文件句柄（規避 Linux `Text file busy` 錯誤），从而完美實現中文自定義網頁標題。
+
+---
+
 ## 2. 常用开发与维护命令
 
 ### 2.1 重新初始化并启动 MCP 配置
