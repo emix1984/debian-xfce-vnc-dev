@@ -44,7 +44,8 @@ SKILLS = [
     "learning-and-research",
     "practice-assessment",
     "flashcards",
-    
+    "agent-browser",
+
     # --- 商业调研与分析类 ---
     "industry-case-analysis",
     "market-comparison",
@@ -74,6 +75,7 @@ SKILL_DESCRIPTIONS = {
     "learning-and-research": "系统化学习、背景资料提取与深度调研总结",
     "practice-assessment": "生成练习题并执行从基础到复杂的知识掌握情况综合评估",
     "flashcards": "提取核心概念，制作调研与学习知识卡片",
+    "agent-browser": "agent-browser 浏览器自动化及 MCP 集成能力",
     
     # 商业调研与分析类
     "industry-case-analysis": "行业案例研究分析与商业应用洞察",

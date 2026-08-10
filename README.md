@@ -74,12 +74,29 @@ docker compose up -d
 * 桌面上挂载的 `workspace` 文件夹是一个纯净的开发沙盒；`config` 文件夹内包含了所有的系统安装与连接脚本。
 
 ### 3. 配置 OpenCode 智能体环境
-容器首次启动时会自动执行 `config/container-init.sh` 脚本。该脚本会自动补齐 Node.js 22、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 自动生成 OpenCode 的 MCP 配置，默认启用本地文件系统、Puppeteer 浏览器、记忆与远程 PDF/调试/系统监控等服务。
+容器首次启动时会自动执行 `config/container-init.sh` 脚本。该脚本会自动补齐 Node.js 22、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 自动生成 OpenCode 的 MCP 配置。默认启用本地文件系统、内存服务、SQLite 存储和 agent-browser；其它可选服务可通过环境变量按需启用。
 
-如果需要手动运行或微调，可以在容器内的 `/headless/Desktop/config/` 路径下手动运行对应的初始化脚本：
+支持的动态环境变量：
+- `MCP_ENABLED_SERVERS`：逗号分隔的服务白名单，优先于 `MCP_DISABLED_SERVERS`。
+- `MCP_DISABLED_SERVERS`：逗号分隔的服务黑名单，用于禁用默认开启的服务。
+- `MCP_AGENT_BROWSER_TOOLS`：传递给 `agent-browser mcp --tools` 的工具集。
+
+`container-init.sh` 会自动执行以下脚本，将 agent-browser、MCP、插件和技能配置模块化地纳入容器初始化流程：
+- **Agent Browser**：`python3 setup_agent_browser.py`
 - **MCP 服务配置**：`python3 setup_mcp.py`
 - **插件装载**：`python3 setup_plugin.py`
 - **技能包导入**：`python3 setup_skill.py`
+
+如果需要手动运行或微调，可在容器内的 `/headless/Desktop/config/` 中手动执行对应脚本。
+
+### Agent-Browser 集成
+容器首次启动时会自动安装 `vercel-labs/agent-browser` CLI，并将其注册为 OpenCode 的本地 MCP 服务。这样，OpenCode WebUI 可以直接将 `agent-browser` 作为一个智能体浏览器工具进行调用。
+
+该集成包括：
+- 自动下载 `agent-browser` Rust 二进制并创建 `/usr/local/bin/agent-browser` 软链接。
+- 执行 `agent-browser install --with-deps` 来安装 Chromium 及 Linux 运行时依赖。
+- 在 `setup_mcp.py` 中启用 `agent-browser` MCP 服务，使用 `agent-browser mcp --tools core,network,react` 启动。
+- 在 `setup_skill.py` 中将 `agent-browser` 列入 OpenCode 技能清单。
 
 ---
 
@@ -98,7 +115,7 @@ docker compose up -d
 * **setup_mcp.py**：
   负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。同时集成了：
   - **Node.js 22 LTS 升级机制**：避免旧版 Node 导致的 better-sqlite3 编译崩溃。
-  - **Puppeteer 容器免沙箱配置**：提供 `ALLOW_DANGEROUS` 和 `--no-sandbox` 参数，使浏览器顺利启动。
+  - **Puppeteer 已移除**：默认配置已停止启用 `puppeteer`，改为使用 `agent-browser` 作为更现代的浏览器自动化引擎。
   - **`base_config` 预设辞典**：在 Python 脚本中统一管理并维护所有开发插件与核心模块的基础配置字段。
 * **setup_plugin.py**：
   负责写入 `plugins.json`。脚本内含自检逻辑，防止因旧版本残留配置、异常数组占位符造成的后台 Node.js 进程在加载 Workspace 时死锁挂起。

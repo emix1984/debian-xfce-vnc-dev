@@ -240,10 +240,12 @@ setup_opencode() {
     echo "[INFO] Symlinked /usr/bin/opencode -> ${OPENCODE_BIN}"
   fi
 
-  # 如果设置了 OPENCODE_WEBUI_TITLE 且非默认，对 OpenCode WebUI 的 HTML head title 进行修补
-  if [ -n "${OPENCODE_WEBUI_TITLE}" ] && [ "${OPENCODE_WEBUI_TITLE}" != "OpenCode" ]; then
-    echo "[INFO] Patching OpenCode WebUI HTML title to: ${OPENCODE_WEBUI_TITLE}"
-    python3 -c "import sys; sys.path.insert(0, '${ACTUAL_HOME}/Desktop/config'); from opencode_utils import patch_webui_title; patch_webui_title()" || echo "[WARN] Failed to patch WebUI title"
+  # 如果设置了 OPENCODE_WEBUI_TITLE 且非默认，通过 config/setup_webui_title.sh 进行独立补丁
+  if [ -f /headless/Desktop/config/setup_webui_title.sh ]; then
+    echo "[INFO] Running WebUI title setup script..."
+    python3 /headless/Desktop/config/setup_webui_title.sh || echo "[WARN] WebUI title setup script failed"
+  else
+    echo "[WARN] setup_webui_title.sh not found; skipping WebUI title patch"
   fi
 
   # 配置全局 Git，OpenCode 依赖 Git 提交记录，如果没有身份信息会报错
@@ -253,8 +255,50 @@ setup_opencode() {
 
   # 确保 PATH 包含 opencode bin
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
+}
 
-  # 使用 nohup 启动 opencode web 并在后台运行 (明确使用 CLI 二进制文件)
+setup_agent_browser() {
+  echo ""
+  echo "--- [setup_agent_browser] ---"
+  if [ -f /headless/Desktop/config/setup_agent_browser.py ]; then
+    python3 /headless/Desktop/config/setup_agent_browser.py || echo "[WARN] Agent Browser setup script failed"
+  else
+    echo "[WARN] setup_agent_browser.py not found; skipping Agent Browser installation"
+  fi
+}
+
+setup_mcp() {
+  echo ""
+  echo "--- [setup_mcp] ---"
+  if [ -f /headless/Desktop/config/setup_mcp.py ]; then
+    python3 /headless/Desktop/config/setup_mcp.py --skip-validate --no-restart || echo "[WARN] MCP setup script failed"
+  else
+    echo "[WARN] setup_mcp.py not found; skipping MCP configuration"
+  fi
+}
+
+setup_plugins() {
+  echo ""
+  echo "--- [setup_plugins] ---"
+  if [ -f /headless/Desktop/config/setup_plugin.py ]; then
+    python3 /headless/Desktop/config/setup_plugin.py || echo "[WARN] Plugin setup script failed"
+  else
+    echo "[WARN] setup_plugin.py not found; skipping plugin setup"
+  fi
+}
+
+setup_skills() {
+  echo ""
+  echo "--- [setup_skills] ---"
+  if [ -f /headless/Desktop/config/setup_skill.py ]; then
+    python3 /headless/Desktop/config/setup_skill.py || echo "[WARN] Skill setup script failed"
+  else
+    echo "[WARN] setup_skill.py not found; skipping skill setup"
+  fi
+}
+
+start_opencode_web() {
+  # 使用 tmux 启动 opencode web 并在后台运行 (明确使用 CLI 二进制文件)
   if [ ! -x "${OPENCODE_BIN}" ]; then
     echo "[WARN] OpenCode CLI executable not found at ${OPENCODE_BIN}; skipping start."
     return 0
@@ -262,10 +306,22 @@ setup_opencode() {
 
   if pgrep -f "opencode web" >/dev/null 2>&1; then
     echo "[INFO] OpenCode Web UI is already running."
+    return 0
+  fi
+
+  cd /headless || true
+  if tmux has-session -t opencode_web >/dev/null 2>&1; then
+    echo "[INFO] tmux session opencode_web already exists. Attaching to it is optional."
   else
-    cd /headless || true
-    nohup "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
-    echo "[INFO] OpenCode Web UI started with nohup in background."
+    EXTRA_ARGS=()
+    if [ -n "${OPENCODE_WEBUI_EXTRA_ARGS:-}" ]; then
+      EXTRA_ARGS+=( ${OPENCODE_WEBUI_EXTRA_ARGS} )
+    fi
+    if [ "${OPENCODE_WEBUI_MDNS:-false}" = "true" ]; then
+      EXTRA_ARGS+=( --mdns )
+    fi
+    tmux new-session -d -s opencode_web "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 "${EXTRA_ARGS[@]}"
+    echo "[INFO] OpenCode Web UI started in tmux session opencode_web."
   fi
 }
 
@@ -291,17 +347,13 @@ setup_users
 setup_packages
 show_system_info
 setup_ssh
-setup_opencode
 setup_node
-
-if [ -f /headless/Desktop/config/setup_mcp.py ]; then
-  echo ""
-  echo "--- [setup_mcp] ---"
-  python3 /headless/Desktop/config/setup_mcp.py --skip-validate || echo "[WARN] MCP setup script failed"
-else
-  echo "[WARN] setup_mcp.py not found; skipping MCP configuration"
-fi
-
+setup_opencode
+setup_agent_browser
+setup_mcp
+setup_plugins
+setup_skills
+start_opencode_web
 
 echo ""
 echo "========================================"

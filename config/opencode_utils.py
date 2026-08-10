@@ -69,6 +69,21 @@ def find_bunx() -> Optional[str]:
             return p
     return shutil.which("bunx")
 
+
+def find_agent_browser() -> Optional[str]:
+    """Find the path to the agent-browser executable."""
+    for p in [
+        os.path.join(ACTUAL_HOME, ".npm-global", "bin", "agent-browser"),
+        os.path.join(os.environ.get("HOME", "/root"), ".npm-global", "bin", "agent-browser"),
+        "/usr/local/bin/agent-browser",
+        "/usr/bin/agent-browser",
+        "/usr/local/lib/node_modules/agent-browser/bin/agent-browser.js",
+    ]:
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    return shutil.which("agent-browser")
+
+
 def ensure_bunx(log_file: Optional[Path] = None) -> str:
     """Find bunx or install it if missing."""
     bunx_path = find_bunx()

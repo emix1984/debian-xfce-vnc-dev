@@ -78,6 +78,9 @@ VNC_PW=1234
 TZ=Asia/Seoul
 OPENCODE_WEBUI_TITLE=OpenCode
 
+# Agent Browser integration settings
+AGENT_BROWSER_VERSION=v0.33.2
+
 EOF
     echo -e "${GREEN}[OK] Private configuration file ($CONFIG_FILE) created.${NC}"
     sleep 1

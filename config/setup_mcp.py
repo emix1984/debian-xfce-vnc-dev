@@ -21,6 +21,7 @@ from opencode_utils import (
     LOG_DIR,
     get_log_file,
     log as _log,
+    find_agent_browser,
     find_bunx,
     ensure_bunx,
     restart_webui as _restart_webui,
@@ -32,6 +33,21 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 def log(msg: str, level: str = "INFO") -> None:
     _log(msg, level, LOG_FILE)
+
+
+def parse_list(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def is_server_enabled(name: str, default: bool = False) -> bool:
+    enabled_list = parse_list(os.getenv("MCP_ENABLED_SERVERS", ""))
+    disabled_list = parse_list(os.getenv("MCP_DISABLED_SERVERS", ""))
+
+    if enabled_list:
+        return name in enabled_list
+    if disabled_list:
+        return name not in disabled_list
+    return default
 
 
 # BUNX resolution is performed at runtime in main()
@@ -49,67 +65,73 @@ def build_mcp_servers(bunx_path: str) -> dict:
     sqlite_port = os.getenv("MCP_SQLITE_PORT", "3100")
     sqlite_db_path = os.getenv("MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite"))
 
-    return {
+    servers = {
         "filesystem": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-filesystem", workspace_dir],
-            "enabled": True,
-        },
-        # Postgres removed by default (not necessary for local dev)
-        "puppeteer": {
-            "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-puppeteer"],
-            "enabled": True,
-            "env": {
-                "ALLOW_DANGEROUS": "true",
-                "PUPPETEER_LAUNCH_OPTIONS": '{"args": ["--no-sandbox"]}'
-            }
+            "enabled": is_server_enabled("filesystem", default=True),
         },
         "memory": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-memory"],
-            "enabled": True,
+            "enabled": is_server_enabled("memory", default=False),
         },
         # SQLite-based memory for session compression / persistent small storage
         "sqlite": {
             "type": "local",
             "command": [bunx_path, "@pepk/mcp-memory-sqlite"],
-            "enabled": True,
+            "enabled": is_server_enabled("sqlite", default=True),
             "env": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
         },
         "sequential-thinking": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-sequential-thinking"],
-            "enabled": True,
+            "enabled": is_server_enabled("sequential-thinking", default=False),
         },
         "gh_grep": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-github"],
-            "enabled": True,
+            "enabled": is_server_enabled("gh_grep", default=False),
         },
         # These services expose HTTP MCP endpoints, so OpenCode should connect to them as remote servers.
         "pdf": {
             "type": "remote",
             "url": f"http://127.0.0.1:{pdf_port}/mcp",
-            "enabled": True,
+            "enabled": is_server_enabled("pdf", default=False),
             "_package": "@modelcontextprotocol/server-pdf",
             "_env": {"PORT": str(pdf_port)},
         },
         "debug": {
             "type": "remote",
             "url": f"http://127.0.0.1:{debug_port}/mcp",
-            "enabled": True,
+            "enabled": is_server_enabled("debug", default=False),
             "_package": "@modelcontextprotocol/server-debug",
             "_env": {"PORT": str(debug_port)},
         },
         "system-monitor": {
             "type": "remote",
             "url": f"http://127.0.0.1:{system_monitor_port}/mcp",
-            "enabled": True,
+            "enabled": is_server_enabled("system-monitor", default=False),
             "_package": "@modelcontextprotocol/server-system-monitor",
             "_env": {"PORT": str(system_monitor_port)},
         },
     }
+
+    agent_browser_path = os.getenv("AGENT_BROWSER_BIN") or find_agent_browser()
+    if agent_browser_path:
+        agent_tools = os.getenv("MCP_AGENT_BROWSER_TOOLS", "core,network,react")
+        servers["agent-browser"] = {
+            "type": "local",
+            "command": [agent_browser_path, "mcp", "--tools", agent_tools],
+            "enabled": is_server_enabled("agent-browser", default=True),
+            "env": {
+                "AGENT_BROWSER_IDLE_TIMEOUT_MS": os.getenv("AGENT_BROWSER_IDLE_TIMEOUT_MS", "600000"),
+            },
+        }
+    else:
+        log("agent-browser binary not found; skipping agent-browser MCP server", "WARN")
+
+    return servers
 
 
 def _npm_available() -> bool:

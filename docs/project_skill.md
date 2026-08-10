@@ -35,18 +35,13 @@
 
 ---
 
-### 1.2 Docker 容器 Root 权限下 Puppeteer 无法启动
+### 1.2 Docker 容器 Root 权限下浏览器自动化服务策略
 - **问题现象**：
-  当 OpenCode 试图通过 `bunx @modelcontextprotocol/server-puppeteer` 自动拉起 Puppeteer 服务时，OpenCode 报错：
-  `server unavailable (puppeteer, status=failed)`
-- **技术原因**：
-  Chromium 浏览器出于安全性考虑，默认不允许在 `root` 用户下以沙箱模式（Sandbox）启动。在 Docker 容器以 root 运行时，启动会直接崩溃。
-- **解决方法**：
-  In `opencode.jsonc` 配置文件中为 puppeteer 注册特殊的启动环境变量：
-  - `ALLOW_DANGEROUS`: `true`
-  - `PUPPETEER_LAUNCH_OPTIONS`: `{"args": ["--no-sandbox"]}`
-  
-  这会指引 Chromium 以 `--no-sandbox` 模式启动，从而在 root 容器内正常运转。
+  旧有的 `puppeteer` 本地 MCP 服务在 root Docker 容器内启动稳定性差，且会引入额外资源开销。
+- **技术策略**：
+  将 `puppeteer` 从默认 OpenCode MCP 配置中移除，改为使用 `agent-browser` 作为浏览器自动化引擎。
+- **替代方案**：
+  通过 `agent-browser` 提供的 `mcp` 模式，OpenCode 可以以更现代、语义化的方式驱动浏览器自动化，避免对 Chromium sandbox 的特殊配置依赖。
 
 ---
 
@@ -74,6 +69,15 @@
   1. 保持 `.deb` 桌面程序的正常安装，提供 VNC 桌面 GUI 支持。
   2. 明确将 `/usr/bin/opencode` 软链接指向 CLI 二进制文件 `${OPENCODE_BIN}` (`/headless/.opencode/bin/opencode`)。
   3. 在 `container-init.sh` 和 `restart_opencode.sh` 中显式通过 `${OPENCODE_BIN} web` 启动 4096 端口 HTTP WebUI 服务。
+
+### 1.7 agent-browser 浏览器自动化集成
+- **目标**：将 `vercel-labs/agent-browser` 作为独立浏览器自动化工具集成到当前 OpenCode 容器环境中，并通过 MCP 服务将其暴露给 OpenCode。
+- **实现方式**：
+  1. 新增 `config/setup_agent_browser.py`，自动下载并安装 `agent-browser` 发行版二进制，并执行 `agent-browser install --with-deps`。
+  2. 在 `config/setup_mcp.py` 中新增 `agent-browser` MCP server 配置；当二进制可用时，OpenCode 会通过 `agent-browser mcp --tools core,network,react` 启动浏览器自动化 MCP 服务。
+  3. 在 `config/setup_skill.py` 中将 `agent-browser` 纳入技能清单，并补充 skills.json 显示描述。
+  5. 在 `config/container-init.sh` 中增加对 `setup_agent_browser.py`、`setup_mcp.py`、`setup_plugin.py` 和 `setup_skill.py` 的自动执行，从容器启动时完成 agent-browser 安装、MCP 配置、插件装载与技能注册。
+- **结果**：OpenCode 可在 WebUI 中识别 agent-browser 相关 skill，并通过 MCP 直接驱动 agent-browser 浏览器自动化命令。
 
 ---
 
