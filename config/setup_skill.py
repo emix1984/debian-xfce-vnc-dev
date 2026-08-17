@@ -16,13 +16,17 @@ import subprocess
 import time
 import sys
 from opencode_utils import (
-    OPENCODE_HOME, get_log_file, log as _log, 
-    command_exists, restart_webui
+    OPENCODE_HOME,
+    get_log_file,
+    log as _log,
+    command_exists,
+    restart_webui,
 )
 
 LOG_FILE = get_log_file("setup_skill")
 OPENCODE_SKILLS_DIR = os.path.join(OPENCODE_HOME, "skills")
 SKILLS_LIST_FILE = os.path.join(OPENCODE_HOME, "skills.json")
+
 
 def log(msg, level="INFO"):
     _log(msg, level, LOG_FILE)
@@ -34,23 +38,19 @@ SKILLS = [
     "karpathy-guidelines",
     "fullstack-agent-suite",
     "frontend-artifacts-builder",
-    
     # --- 审查与测试类 ---
     "code-review-workflow",
     "code-review-graph",
     "webapp-testing",
-    
     # --- 学习与评估类 ---
     "learning-and-research",
     "practice-assessment",
     "flashcards",
     "agent-browser",
-
     # --- 商业调研与分析类 ---
     "industry-case-analysis",
     "market-comparison",
     "shopping-savings",
-    
     # --- 搜索与扩展技能 ---
     "anysearch-skill@git+https://github.com/anysearch-ai/anysearch-skill.git",
     "nuwa-skill@git+https://github.com/alchaincyf/nuwa-skill.git",
@@ -65,23 +65,19 @@ SKILL_DESCRIPTIONS = {
     "karpathy-guidelines": "Karpathy 编程思维与规范",
     "fullstack-agent-suite": "综合全栈开发技能套件 (涵盖前后端 API 构建、容器化部署与服务器配置)",
     "frontend-artifacts-builder": "生成复杂 HTML 构件与生产级前端 UI 设计",
-    
     # 审查与测试类
     "code-review-workflow": "跨语言 (包含 Python/HTML 等) 的代码、安全与架构设计审查工作流",
     "code-review-graph": "代码知识图谱与项目结构分析",
     "webapp-testing": "Playwright 前端与自动化测试",
-    
     # 学习与评估类
     "learning-and-research": "系统化学习、背景资料提取与深度调研总结",
     "practice-assessment": "生成练习题并执行从基础到复杂的知识掌握情况综合评估",
     "flashcards": "提取核心概念，制作调研与学习知识卡片",
     "agent-browser": "agent-browser 浏览器自动化及 MCP 集成能力",
-    
     # 商业调研与分析类
     "industry-case-analysis": "行业案例研究分析与商业应用洞察",
     "market-comparison": "对比不同区域市场与竞品，并提炼最佳实践与策略推荐",
     "shopping-savings": "产品价格追踪、平台政策与物流成本趋势分析",
-    
     # 搜索与扩展技能
     "anysearch-skill@git+https://github.com/anysearch-ai/anysearch-skill.git": "AnySearch AI 搜索与增强辅助技能",
     "nuwa-skill@git+https://github.com/alchaincyf/nuwa-skill.git": "Nuwa Skill 拓展能力",

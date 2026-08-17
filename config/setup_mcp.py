@@ -63,12 +63,18 @@ def build_mcp_servers(bunx_path: str) -> dict:
     debug_port = os.getenv("MCP_DEBUG_PORT", "3003")
     system_monitor_port = os.getenv("MCP_SYSTEM_MONITOR_PORT", "3004")
     sqlite_port = os.getenv("MCP_SQLITE_PORT", "3100")
-    sqlite_db_path = os.getenv("MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite"))
+    sqlite_db_path = os.getenv(
+        "MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite")
+    )
 
     servers = {
         "filesystem": {
             "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-filesystem", workspace_dir],
+            "command": [
+                bunx_path,
+                "@modelcontextprotocol/server-filesystem",
+                workspace_dir,
+            ],
             "enabled": is_server_enabled("filesystem", default=True),
         },
         "memory": {
@@ -125,7 +131,9 @@ def build_mcp_servers(bunx_path: str) -> dict:
             "command": [agent_browser_path, "mcp", "--tools", agent_tools],
             "enabled": is_server_enabled("agent-browser", default=True),
             "env": {
-                "AGENT_BROWSER_IDLE_TIMEOUT_MS": os.getenv("AGENT_BROWSER_IDLE_TIMEOUT_MS", "600000"),
+                "AGENT_BROWSER_IDLE_TIMEOUT_MS": os.getenv(
+                    "AGENT_BROWSER_IDLE_TIMEOUT_MS", "600000"
+                ),
             },
         }
     else:
@@ -149,7 +157,12 @@ def _package_exists(pkg_name: str) -> Optional[bool]:
         log("npm not available; skipping package existence checks", "WARN")
         return None
     try:
-        result = subprocess.run(["npm", "view", pkg_name, "version"], capture_output=True, text=True, timeout=15)
+        result = subprocess.run(
+            ["npm", "view", pkg_name, "version"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
         if result.returncode == 0 and result.stdout.strip():
             return True
         return False
@@ -242,18 +255,27 @@ def validate_servers(servers: dict, skip_validate: bool = False) -> None:
             if not isinstance(token, str):
                 continue
             stripped = token.strip()
-            if stripped.startswith("@") or stripped.startswith("modelcontextprotocol") or stripped.startswith("server-"):
+            if (
+                stripped.startswith("@")
+                or stripped.startswith("modelcontextprotocol")
+                or stripped.startswith("server-")
+            ):
                 pkg = stripped
                 break
         if not pkg:
             continue
         exists = _package_exists(pkg)
         if exists is False:
-            log(f"Package not found on npm: {pkg}; disabling MCP server: {name}", "WARN")
+            log(
+                f"Package not found on npm: {pkg}; disabling MCP server: {name}", "WARN"
+            )
             cfg["enabled"] = False
             cfg["_note"] = "package not found on npm"
         elif exists is None:
-            log(f"Could not verify package {pkg}; leaving enabled state as-is for {name}", "WARN")
+            log(
+                f"Could not verify package {pkg}; leaving enabled state as-is for {name}",
+                "WARN",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +327,7 @@ base_config = {
     "opencode-type-inject": {},
     "opencode-browser": {},
     "opencode-arise": {},
-    "opencode-token-monitor": {}
+    "opencode-token-monitor": {},
 }
 
 
@@ -366,9 +388,14 @@ def verify_mcp(timeout: int = 15) -> bool:
 # ---------------------------------------------------------------------------
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser(description="Configure OpenCode MCP servers")
     parser.add_argument("--dry-run", action="store_true", help="Generate config only")
-    parser.add_argument("--skip-validate", action="store_true", help="Skip npm package existence validation")
+    parser.add_argument(
+        "--skip-validate",
+        action="store_true",
+        help="Skip npm package existence validation",
+    )
     parser.add_argument("--no-restart", action="store_true", help="Skip restart")
     args = parser.parse_args()
 

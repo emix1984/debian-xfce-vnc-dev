@@ -11,19 +11,24 @@ import subprocess
 import time
 import sys
 from opencode_utils import (
-    OPENCODE_HOME, get_log_file, log as _log, 
-    command_exists, restart_webui
+    OPENCODE_HOME,
+    get_log_file,
+    log as _log,
+    command_exists,
+    restart_webui,
 )
 
 LOG_FILE = get_log_file("setup_plugin")
 OPENCODE_PLUGINS_DIR = os.path.join(OPENCODE_HOME, "plugins")
 PLUGINS_LIST_FILE = os.path.join(OPENCODE_HOME, "plugins.json")
 
+
 def log(msg, level="INFO"):
     _log(msg, level, LOG_FILE)
 
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\[\?25[hl]")
+
 
 def strip_ansi(text):
     """去除 ANSI 转义码"""
@@ -172,7 +177,10 @@ def _bun_preinstall(plugin):
             log(f"  [FIX] bun 预装依赖成功: {plugin}")
             return True
         else:
-            log(f"  [WARN] bun 预装依赖失败: {(result.stderr or result.stdout or '').strip()[:200]}", "WARN")
+            log(
+                f"  [WARN] bun 预装依赖失败: {(result.stderr or result.stdout or '').strip()[:200]}",
+                "WARN",
+            )
     except Exception as e:
         log(f"  [WARN] bun 预装异常: {e}", "WARN")
 
@@ -197,7 +205,10 @@ def install_single_plugin(plugin, idx, total):
                 return (plugin, True)
 
             err_msg = extract_error(combined)
-            log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {err_msg}", "WARN")
+            log(
+                f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装失败: {err_msg}",
+                "WARN",
+            )
 
             # 如果是 git dep preparation failed，尝试 bun 预装后重试
             if "git dep preparation failed" in combined:
@@ -211,24 +222,37 @@ def install_single_plugin(plugin, idx, total):
                             text=True,
                         )
                         combined2 = (result2.stdout or "") + (result2.stderr or "")
-                        if result2.returncode == 0 and "Install failed" not in combined2:
+                        if (
+                            result2.returncode == 0
+                            and "Install failed" not in combined2
+                        ):
                             log(f"  [OK] {plugin} 安装成功（bun 预装后）")
                             return (plugin, True)
                         else:
-                            log(f"  [WARN] bun 预装后仍失败: {extract_error(combined2)}", "WARN")
+                            log(
+                                f"  [WARN] bun 预装后仍失败: {extract_error(combined2)}",
+                                "WARN",
+                            )
                     except Exception as e:
                         log(f"  [WARN] bun 预装后重试出错: {e}", "WARN")
 
         except subprocess.TimeoutExpired:
-            log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装超时 (120s)", "WARN")
+            log(
+                f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装超时 (120s)",
+                "WARN",
+            )
         except Exception as e:
-            log(f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装出错: {e}", "WARN")
+            log(
+                f"  [WARN] 尝试 {attempt}/{max_retries} - {plugin} 安装出错: {e}",
+                "WARN",
+            )
 
         if attempt < max_retries:
             time.sleep(2)
 
     log(f"  [ERROR] {plugin} 在 {max_retries} 次尝试后最终安装失败", "ERROR")
     return (plugin, False)
+
 
 def install_plugins_legacy(plugins):
     """使用 opencode plugin <module> 命令安装插件 (串行备份逻辑)"""
@@ -248,7 +272,9 @@ def install_plugins_legacy(plugins):
         else:
             failed.append(plugin_name)
 
-    log(f"安装总结: 成功 {len(installed)}/{len(plugins)}, 失败 {len(failed)}/{len(plugins)}")
+    log(
+        f"安装总结: 成功 {len(installed)}/{len(plugins)}, 失败 {len(failed)}/{len(plugins)}"
+    )
     if failed:
         log(f"  失败的 Plugin: {', '.join(failed)}", "WARN")
 
@@ -258,11 +284,9 @@ def install_plugins_legacy(plugins):
 def install_plugins(plugins):
     """通过生成 package.json 并执行 bun install 来安装所有插件，以保证安装成功率 100% 且显示名称简短干净"""
     log("开始生成 package.json 并批量安装 Plugin...")
-    
+
     # 1. 构造 package.json 依赖
-    dependencies = {
-        "@opencode-ai/plugin": "1.18.2"
-    }
+    dependencies = {"@opencode-ai/plugin": "1.18.2"}
     for p in plugins:
         if not isinstance(p, str) or not p:
             continue
@@ -271,7 +295,7 @@ def install_plugins(plugins):
             dependencies[name] = url
         else:
             dependencies[p] = "latest"
-            
+
     # 2. 写入 package.json
     pkg_json_file = os.path.join(OPENCODE_HOME, "package.json")
     try:
@@ -282,7 +306,7 @@ def install_plugins(plugins):
                     existing_data = json.load(f)
             except Exception:
                 pass
-        
+
         existing_data["dependencies"] = dependencies
         with open(pkg_json_file, "w", encoding="utf-8") as f:
             json.dump(existing_data, f, indent=2, ensure_ascii=False)
@@ -290,13 +314,13 @@ def install_plugins(plugins):
     except Exception as e:
         log(f"写入 package.json 失败: {e}", "ERROR")
         sys.exit(1)
-        
+
     # 3. 运行 bun install
     bun_bin = _find_bun()
     if not bun_bin:
         log("bun 未找到，退回使用 opencode plugin 命令逐个安装...", "WARN")
         return install_plugins_legacy(plugins)
-        
+
     log("正在通过 bun 批量安装插件和依赖...")
     try:
         result = subprocess.run(
@@ -304,7 +328,7 @@ def install_plugins(plugins):
             capture_output=True,
             text=True,
             timeout=180,
-            cwd=OPENCODE_HOME
+            cwd=OPENCODE_HOME,
         )
         if result.returncode == 0:
             log("[OK] 所有插件已通过 bun 成功安装到 node_modules 中！")
@@ -336,7 +360,9 @@ def self_check():
 
         # 确保 plugins 字段是列表，过滤无效条目
         if isinstance(data.get("plugins"), list):
-            data["plugins"] = [p for p in data["plugins"] if isinstance(p, str) and p != "list"]
+            data["plugins"] = [
+                p for p in data["plugins"] if isinstance(p, str) and p != "list"
+            ]
         else:
             data["plugins"] = []
 

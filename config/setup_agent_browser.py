@@ -13,10 +13,16 @@ from pathlib import Path
 AGENT_BROWSER_VERSION = os.getenv("AGENT_BROWSER_VERSION", "v0.33.2")
 RELEASE_API = f"https://api.github.com/repos/vercel-labs/agent-browser/releases/tags/{AGENT_BROWSER_VERSION}"
 
-INSTALL_PATH = Path(os.getenv("AGENT_BROWSER_INSTALL_PATH", "/usr/local/bin/agent-browser"))
-DOWNLOAD_CACHE = Path(os.getenv("AGENT_BROWSER_DOWNLOAD_CACHE", "/tmp/agent-browser-download"))
+INSTALL_PATH = Path(
+    os.getenv("AGENT_BROWSER_INSTALL_PATH", "/usr/local/bin/agent-browser")
+)
+DOWNLOAD_CACHE = Path(
+    os.getenv("AGENT_BROWSER_DOWNLOAD_CACHE", "/tmp/agent-browser-download")
+)
 
-LOG_PATH = Path(os.getenv("LOG_DIR", "/dockerstartup/custom")) / "setup_agent_browser.log"
+LOG_PATH = (
+    Path(os.getenv("LOG_DIR", "/dockerstartup/custom")) / "setup_agent_browser.log"
+)
 
 ASSET_MAP = {
     ("Linux", "x86_64"): "agent-browser-linux-x64",
@@ -46,9 +52,13 @@ def current_asset_name() -> str:
 
 def run_command(cmd, cwd=None, timeout=300):
     log(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    result = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
+    )
     if result.returncode != 0:
-        raise RuntimeError(result.stderr or result.stdout or f"Command failed: {' '.join(cmd)}")
+        raise RuntimeError(
+            result.stderr or result.stdout or f"Command failed: {' '.join(cmd)}"
+        )
     return result.stdout.strip()
 
 
@@ -69,7 +79,9 @@ def download_asset(url: str, dest: Path) -> None:
                 data = response.read()
             dest.write_bytes(data)
         except Exception as exc:
-            raise RuntimeError("Failed to download agent-browser asset with urllib: %s" % exc)
+            raise RuntimeError(
+                "Failed to download agent-browser asset with urllib: %s" % exc
+            )
 
 
 def fetch_release_metadata() -> dict:
@@ -77,7 +89,9 @@ def fetch_release_metadata() -> dict:
         output = run_command(["curl", "-fsSL", RELEASE_API])
         return json.loads(output)
     except Exception as exc:
-        raise RuntimeError(f"Failed to fetch agent-browser release metadata: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to fetch agent-browser release metadata: {exc}"
+        ) from exc
 
 
 def install_binary(asset_name: str, download_url: str) -> None:
@@ -89,7 +103,9 @@ def install_binary(asset_name: str, download_url: str) -> None:
         elif shutil.which("wget"):
             run_command(["wget", "-qO", str(target_archive), download_url])
         else:
-            raise RuntimeError("Neither curl nor wget is available to download agent-browser")
+            raise RuntimeError(
+                "Neither curl nor wget is available to download agent-browser"
+            )
     else:
         log(f"Using cached asset: {target_archive}")
 
@@ -134,13 +150,17 @@ def main() -> None:
 
     asset_name = current_asset_name()
     if not asset_name:
-        raise RuntimeError(f"Unsupported platform {platform.system()} {platform.machine()}")
+        raise RuntimeError(
+            f"Unsupported platform {platform.system()} {platform.machine()}"
+        )
 
     metadata = fetch_release_metadata()
     assets = metadata.get("assets", [])
     asset = next((a for a in assets if a.get("name") == asset_name), None)
     if not asset:
-        raise RuntimeError(f"Release asset {asset_name} not found in agent-browser release {AGENT_BROWSER_VERSION}")
+        raise RuntimeError(
+            f"Release asset {asset_name} not found in agent-browser release {AGENT_BROWSER_VERSION}"
+        )
 
     download_url = asset.get("browser_download_url")
     if not download_url:
