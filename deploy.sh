@@ -23,7 +23,7 @@ CONFIG_FILE=".deploy_config"
 show_banner() {
   clear
   echo -e "${CYAN}================================================================${NC}"
-  echo -e "${CYAN} ${BOLD}Debian Xfce VNC Agent Workstation - Control Panel${NC}"
+  echo -e "${CYAN} ${BOLD}Debian Xfce VNC Agent Workstation - Control Panel${NC} ${YELLOW}[${DEPLOY_VERSION}]${NC}"
   echo -e "${CYAN}================================================================${NC}"
 }
 
@@ -77,9 +77,8 @@ VNC_RESOLUTION=1280x720
 VNC_PW=1234
 TZ=Asia/Seoul
 OPENCODE_WEBUI_TITLE=OpenCode
-
-# Agent Browser integration settings
 AGENT_BROWSER_VERSION=v0.33.2
+DEPLOY_VERSION=v$(date +'%Y.%m.%d-%H%M')
 
 EOF
     echo -e "${GREEN}[OK] Private configuration file ($CONFIG_FILE) created.${NC}"
@@ -107,6 +106,7 @@ EOF
   VNC_PW="${VNC_PW:-1234}"
   TZ="${TZ:-Asia/Seoul}"
   OPENCODE_WEBUI_TITLE="${OPENCODE_WEBUI_TITLE:-OpenCode}"
+  DEPLOY_VERSION="${DEPLOY_VERSION:-v$(date +'%Y.%m.%d-%H%M')}"
 }
 
 # --- Save Single Parameter ---
@@ -126,6 +126,14 @@ set_config_val() {
   else
     echo "${key}=${val}" >> "$CONFIG_FILE"
   fi
+}
+
+# --- Update Timestamp Deployment Version ---
+update_deploy_version() {
+  local new_ver="v$(date +'%Y.%m.%d-%H%M')"
+  set_config_val "DEPLOY_VERSION" "$new_ver"
+  export DEPLOY_VERSION="$new_ver"
+  echo -e "${GREEN}[OK] Deployment timestamp version updated to: ${BOLD}${new_ver}${NC}"
 }
 
 # --- Check Container Running Status ---
@@ -149,7 +157,8 @@ is_running() {
 # --- Dashboard Display ---
 show_dashboard() {
   local status_str=$(get_container_status)
-  echo -e "Container Status: ${status_str}"
+  echo -e "Container Status:   ${status_str}"
+  echo -e "Deploy Version:     ${YELLOW}${BOLD}${DEPLOY_VERSION}${NC}"
   echo -e "\n${BOLD}--- Current Access Details ---${NC}"
   echo -e " VNC Desktop client: ${CYAN}vnc://localhost:${VNC_PORT}${NC}"
   echo -e " noVNC Browser:      ${CYAN}http://localhost:${NOVNC_PORT}${NC}"
@@ -172,9 +181,10 @@ configure_settings() {
     echo -e "6) VNC/SSH Password      : ${CYAN}${VNC_PW}${NC}"
     echo -e "7) Container Timezone    : ${CYAN}${TZ}${NC}"
     echo -e "8) OpenCode WebUI Title  : ${CYAN}${OPENCODE_WEBUI_TITLE}${NC}"
+    echo -e "9) Refresh Deploy Version: ${YELLOW}${DEPLOY_VERSION}${NC}"
     echo -e "0) Back to Main Menu"
     echo -e "\n================================================================"
-    echo -n "Select parameter to modify [0-8]: "
+    echo -n "Select parameter to modify [0-9]: "
     read -r config_opt
 
     case "$config_opt" in
@@ -217,6 +227,10 @@ configure_settings() {
         echo -n "Enter OpenCode WebUI Head Title [current: ${OPENCODE_WEBUI_TITLE}]: "
         read -r input_val
         if [ -n "$input_val" ]; then set_config_val "OPENCODE_WEBUI_TITLE" "$input_val"; fi
+        ;;
+      9)
+        update_deploy_version
+        sleep 1.5
         ;;
       0)
         break
@@ -319,6 +333,7 @@ main_menu() {
         if [[ "$confirm_reset" =~ ^[Yy]$ ]]; then
           echo -e "${BLUE}Cleaning up resources and volumes...${NC}"
           $DOCKER_COMPOSE_CMD down -v
+          update_deploy_version
           echo -e "${GREEN}[OK] Clean finished.${NC}"
         else
           echo -e "Cleanup canceled."
@@ -328,6 +343,7 @@ main_menu() {
       8)
         echo -e "\n${BLUE}Force recreating and spinning up containers...${NC}"
         $DOCKER_COMPOSE_CMD up -d --force-recreate
+        update_deploy_version
         echo -e "${GREEN}[OK] Docker Compose force-recreate finished.${NC}"
         sleep 2
         ;;
@@ -392,6 +408,7 @@ main_menu() {
           1)
             echo -e "${BLUE}Attempting fast-forward pull...${NC}"
             if git pull --ff-only origin ${branch_name}; then
+              update_deploy_version
               echo -e "${GREEN}[OK] Fast-forward applied.${NC}"
             else
               echo -e "${RED}[ERROR] Fast-forward failed (non-fast-forward). Consider option 2/3 or stashing local changes.${NC}"
@@ -400,6 +417,7 @@ main_menu() {
           2)
             echo -e "${BLUE}Merging remote changes (git pull)...${NC}"
             if git pull --no-rebase origin ${branch_name}; then
+              update_deploy_version
               echo -e "${GREEN}[OK] Merge completed.${NC}"
             else
               echo -e "${RED}[ERROR] Merge failed. Resolve conflicts manually.${NC}"
@@ -408,6 +426,7 @@ main_menu() {
           3)
             echo -e "${BLUE}Rebasing local commits onto remote (git pull --rebase)...${NC}"
             if git pull --rebase origin ${branch_name}; then
+              update_deploy_version
               echo -e "${GREEN}[OK] Rebase completed.${NC}"
             else
               echo -e "${RED}[ERROR] Rebase failed. Resolve conflicts manually.${NC}"
@@ -422,6 +441,7 @@ main_menu() {
               echo -e "${YELLOW}[INFO] No local changes to stash or stash failed.${NC}"
             fi
             if git pull origin ${branch_name}; then
+              update_deploy_version
               echo -e "${GREEN}[OK] Pull completed.${NC}"
               echo -e "${YELLOW}If you stashed changes you can inspect or apply them with: git stash list / git stash pop${NC}"
             else

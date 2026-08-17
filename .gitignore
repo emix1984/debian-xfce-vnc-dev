@@ -24,9 +24,11 @@ logs/
 .deploy_config.bak
 *.bak
 
-# Python / Config cache
+# Python / Virtual environments
 config/__pycache__
 config/.opencode
+.venv/
+venv/
 
 # Workspace (User Code & Backups)
 # Prevent user code from polluting the sandbox infrastructure repository
@@ -35,8 +37,8 @@ workspace/*
 workspace_*.bak/
 
 # Agents & Customizations
+.agent/
 .agents/
 
 # Packages
 *.deb
-.venv
