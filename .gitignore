@@ -39,3 +39,4 @@ workspace_*.bak/
 
 # Packages
 *.deb
+.venv

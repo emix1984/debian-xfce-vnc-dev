@@ -1,6 +1,0 @@
-#!/Users/lark/github_temp/debian-xfce-vnc-dev/.venv/bin/python3
-import sys
-from black import patched_main
-if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
-    sys.exit(patched_main())
