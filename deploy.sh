@@ -332,18 +332,113 @@ main_menu() {
         sleep 2
         ;;
       9)
-        echo -e "\n${RED}${BOLD}[WARNING] This will DISCARD all local changes and pull the latest code from GitHub.${NC}"
-        echo -n "Are you sure you want to proceed? (y/N): "
-        read -r confirm_pull
-        if [[ "$confirm_pull" =~ ^[Yy]$ ]]; then
-          echo -e "${BLUE}Force updating from GitHub...${NC}"
-          branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-          git fetch --all
-          git reset --hard origin/$branch_name
-          echo -e "${GREEN}[OK] Update finished.${NC}"
-        else
-          echo -e "Update canceled."
+        echo -e "\n${YELLOW}${BOLD}Check remote vs local before updating${NC}"
+        echo -n "Fetch remote and show summary? (y/N): "
+        read -r confirm_fetch
+        if [[ ! "$confirm_fetch" =~ ^[Yy]$ ]]; then
+          echo -e "Canceled remote check."
+          sleep 1
+          break
         fi
+
+        # Ensure we are in a git repo
+        if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          echo -e "${RED}[ERROR] Current directory is not a git repository. Cannot check updates.${NC}"
+          sleep 2
+          break
+        fi
+
+        branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+        echo -e "${BLUE}Fetching remote refs...${NC}"
+        git fetch --all --prune
+
+        # compare counts: origin only / local only
+        counts=$(git rev-list --left-right --count origin/${branch_name}...${branch_name} 2>/dev/null || true)
+        if [ -z "$counts" ]; then
+          echo -e "${YELLOW}[WARN] Could not determine remote branch origin/${branch_name}. Ensure remote exists.${NC}"
+          sleep 2
+          break
+        fi
+        remote_only=$(echo "$counts" | awk '{print $1}')
+        local_only=$(echo "$counts" | awk '{print $2}')
+
+        echo -e "\n${BOLD}Branch:${NC} ${branch_name}    ${BOLD}Remote commits ahead:${NC} ${remote_only}    ${BOLD}Local commits ahead:${NC} ${local_only}\n"
+
+        if [ "$remote_only" -gt 0 ]; then
+          echo -e "${BLUE}Commits on remote not present locally:${NC}"
+          git --no-pager log --oneline ${branch_name}..origin/${branch_name} | sed -n '1,20p'
+          echo ""
+          echo -e "${BLUE}Summary of changed files (remote -> local):${NC}"
+          git --no-pager diff --stat ${branch_name}..origin/${branch_name} | sed -n '1,40p'
+        else
+          echo -e "${GREEN}Remote has no new commits compared to local.${NC}"
+        fi
+
+        echo ""
+        echo -e "${YELLOW}Important: This update flow will NOT delete your workspace folder (/headless/Desktop/workspace) or its files.${NC}"
+        echo -e "If you have uncommitted work, consider stashing or backing up the workspace before applying updates."
+        echo ""
+        echo "Choose update action:"
+        echo "  1) Fast-forward only (safe, will fail if non-fast-forward)"
+        echo "  2) Merge (git pull, may create merge commit)"
+        echo "  3) Rebase (git pull --rebase)"
+        echo "  4) Stash local changes, then pull (safe for local edits)"
+        echo "  5) Show full diff (dry-run) and abort"
+        echo "  0) Cancel"
+        echo -n "Select [0-5]: "
+        read -r upd_opt
+
+        case "$upd_opt" in
+          1)
+            echo -e "${BLUE}Attempting fast-forward pull...${NC}"
+            if git pull --ff-only origin ${branch_name}; then
+              echo -e "${GREEN}[OK] Fast-forward applied.${NC}"
+            else
+              echo -e "${RED}[ERROR] Fast-forward failed (non-fast-forward). Consider option 2/3 or stashing local changes.${NC}"
+            fi
+            ;;
+          2)
+            echo -e "${BLUE}Merging remote changes (git pull)...${NC}"
+            if git pull --no-rebase origin ${branch_name}; then
+              echo -e "${GREEN}[OK] Merge completed.${NC}"
+            else
+              echo -e "${RED}[ERROR] Merge failed. Resolve conflicts manually.${NC}"
+            fi
+            ;;
+          3)
+            echo -e "${BLUE}Rebasing local commits onto remote (git pull --rebase)...${NC}"
+            if git pull --rebase origin ${branch_name}; then
+              echo -e "${GREEN}[OK] Rebase completed.${NC}"
+            else
+              echo -e "${RED}[ERROR] Rebase failed. Resolve conflicts manually.${NC}"
+            fi
+            ;;
+          4)
+            echo -e "${BLUE}Stashing local changes and pulling...${NC}"
+            stash_ref=$(git stash push -m "pre-update-$(date -Iseconds)" 2>/dev/null || true)
+            if [ -n "$stash_ref" ]; then
+              echo -e "${GREEN}[OK] Local changes stashed: ${stash_ref}${NC}"
+            else
+              echo -e "${YELLOW}[INFO] No local changes to stash or stash failed.${NC}"
+            fi
+            if git pull origin ${branch_name}; then
+              echo -e "${GREEN}[OK] Pull completed.${NC}"
+              echo -e "${YELLOW}If you stashed changes you can inspect or apply them with: git stash list / git stash pop${NC}"
+            else
+              echo -e "${RED}[ERROR] Pull failed after stash. Check repository state.${NC}"
+            fi
+            ;;
+          5)
+            echo -e "${BLUE}Showing full diff (remote -> local). This is a dry-run.${NC}"
+            git --no-pager diff ${branch_name}..origin/${branch_name} | sed -n '1,200p'
+            echo -e "\n${YELLOW}Dry-run complete. No changes applied.${NC}"
+            ;;
+          0|*)
+            echo -e "Update canceled. No changes made to repository or workspace.";
+            ;;
+        esac
+
+        echo ""
         sleep 2
         ;;
       10)
