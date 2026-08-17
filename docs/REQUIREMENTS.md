@@ -23,3 +23,8 @@
 ## 2. 衍生出的优化需求与下一步计划 (待办)
 - [ ] **优化 Docker 基础镜像构建**：在 Dockerfile 中直接安装 Node.js 22，以省去每次容器冷启动时 `container-init.sh` 在线更新的等待时间。
 - [ ] **自动化证书/安全策略配置**：在后续若开启生产模式（`prod`），需要为 OpenCode 容器集成证书及密码控制。
+
+## 3. 已完成的运维变更
+
+- **WebUI 后台运行改为 tmux 会话**：`container-init.sh` 与 `config/restart_opencode.sh` 已统一使用 `tmux` 会话 `opencode_web` 启动和管理 OpenCode WebUI，便于后台管理和日志收集。
+- **WebUI 标题补丁以 Python 脚本执行**：`config/setup_webui_title.sh` 为 Python 脚本，容器启动时由 `python3 /headless/Desktop/config/setup_webui_title.sh` 调用以修补 HTML `<title>`，避免错误地用 shell 解释 Python 代码。

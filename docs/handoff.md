@@ -10,8 +10,12 @@
 ### 1.2 已完成工作
 1. **Node.js 22 升级**：[container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) 现包含自动将 Node 升级到 v22 的机制，解决 node-gyp 与 undici 冲突。
 2. **SQLite MCP (local) 自动修复**：SQLite 顺利在容器内以 Stdio 管道由 OpenCode 自动拉起并运行，完美解决了 `Already connected to a transport` 的多连线单例冲突。
-3. **agent-browser 浏览器自动化集成**：新增 [setup_agent_browser.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_agent_browser.py)，自动安装 `agent-browser` CLI，并在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中注册 `agent-browser` MCP 服务，支持 OpenCode 直接调用浏览器自动化能力。
+3. **agent-browser 浏览器自动化集成**：新增 [setup_agent_browser.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_agent_browser.py)，自动安装 `agent-browser` CLI，并在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中注册 `agent-browser` MCP 服务，支持 OpenCode 直接调用浏览器自动化能力。`config/container-init.sh` 现会自动执行 `setup_agent_browser.py`、`setup_mcp.py`、`setup_plugin.py` 与 `setup_skill.py`，将初始化流程模块化。
 4. **Puppeteer MCP 已移除**：`setup_mcp.py` 按需加载 MCP 服务的机制已升级，不再默认启动 `puppeteer`，避免无谓的浏览器进程与容器资源开销。
+
+补充说明：
+- `setup_webui_title.sh` 为 Python 脚本，容器启动时由 `python3` 调用以修补 WebUI `<title>`（避免用 `bash` 直接执行造成解析错误）。
+- OpenCode WebUI 的启动与重启使用 `tmux` 会话 (`opencode_web`)，并在 `restart_opencode.sh` 中也使用 `tmux` 来保证后台运行可靠性与日志聚合。
 5. **追加 `base_config` 变量**：在 [setup_mcp.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/setup_mcp.py) 中，声明了包含插件默认配置信息的 `base_config` 字典，避免将其硬编码入 `opencode.jsonc` 产生 Schema 校验错误。
 6. **支持本地 `.deb` 包极速安装 OpenCode**：在 [container-init.sh](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/container-init.sh) 中加入了优先检测并使用 `apt-get` 安装本地 `config/opencode-desktop-linux-arm64.deb` 软件包的逻辑，实现离线/低延迟极速安装。
 6. **统一 Workspace 相对挂载路径**：将 [docker-compose.yml](file:///Users/esinternational/github/debian-xfce-vnc-dev/docker-compose.yml) 中的桌面工作区挂载由外部绝对路径统一优化为本地相对路径 `./workspace:/headless/Desktop/workspace`。

@@ -82,10 +82,15 @@ docker compose up -d
 - `MCP_AGENT_BROWSER_TOOLS`：传递给 `agent-browser mcp --tools` 的工具集。
 
 `container-init.sh` 会自动执行以下脚本，将 agent-browser、MCP、插件和技能配置模块化地纳入容器初始化流程：
-- **Agent Browser**：`python3 setup_agent_browser.py`
-- **MCP 服务配置**：`python3 setup_mcp.py`
-- **插件装载**：`python3 setup_plugin.py`
-- **技能包导入**：`python3 setup_skill.py`
+- **Agent Browser**：`python3 setup_agent_browser.py` (安装并准备 `agent-browser` CLI)
+- **MCP 服务配置**：`python3 setup_mcp.py` (生成并写入 `~/.config/opencode/opencode.jsonc`，按需启用远程/本地 MCP 服务)
+- **插件装载**：`python3 setup_plugin.py` (写入 `plugins.json` 并通过 `bun install` 批量准备依赖)
+- **技能包导入**：`python3 setup_skill.py` (写入 `skills.json`，将 `agent-browser` 列入技能清单)
+
+说明要点：
+- `setup_webui_title.sh` 是 Python 脚本，容器启动时通过 `python3 /headless/Desktop/config/setup_webui_title.sh` 调用（不要用 `bash` 直接执行）。
+- 容器内的 OpenCode WebUI 启动与重启现在使用 `tmux` 会话 (`opencode_web`)，`container-init.sh` 与 `config/restart_opencode.sh` 均改为使用 `tmux` 后台运行以便管理与日志收集。
+- MCP 服务采用按需启用策略（opt-in/opt-out），通过环境变量 `MCP_ENABLED_SERVERS` / `MCP_DISABLED_SERVERS` 控制；默认已移除 `puppeteer` 的强制启用。
 
 如果需要手动运行或微调，可在容器内的 `/headless/Desktop/config/` 中手动执行对应脚本。
 

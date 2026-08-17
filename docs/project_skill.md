@@ -71,12 +71,10 @@
   3. 在 `container-init.sh` 和 `restart_opencode.sh` 中显式通过 `${OPENCODE_BIN} web` 启动 4096 端口 HTTP WebUI 服务。
 
 ### 1.7 agent-browser 浏览器自动化集成
-- **目标**：将 `vercel-labs/agent-browser` 作为独立浏览器自动化工具集成到当前 OpenCode 容器环境中，并通过 MCP 服务将其暴露给 OpenCode。
-- **实现方式**：
   1. 新增 `config/setup_agent_browser.py`，自动下载并安装 `agent-browser` 发行版二进制，并执行 `agent-browser install --with-deps`。
   2. 在 `config/setup_mcp.py` 中新增 `agent-browser` MCP server 配置；当二进制可用时，OpenCode 会通过 `agent-browser mcp --tools core,network,react` 启动浏览器自动化 MCP 服务。
   3. 在 `config/setup_skill.py` 中将 `agent-browser` 纳入技能清单，并补充 skills.json 显示描述。
-  5. 在 `config/container-init.sh` 中增加对 `setup_agent_browser.py`、`setup_mcp.py`、`setup_plugin.py` 和 `setup_skill.py` 的自动执行，从容器启动时完成 agent-browser 安装、MCP 配置、插件装载与技能注册。
+  5. `config/container-init.sh` 现在会自动执行 `setup_agent_browser.py`、`setup_mcp.py`、`setup_plugin.py` 和 `setup_skill.py`，从容器启动时完成 agent-browser 安装、MCP 配置、插件装载与技能注册（所有脚本均以 `python3` 调用）。
 - **结果**：OpenCode 可在 WebUI 中识别 agent-browser 相关 skill，并通过 MCP 直接驱动 agent-browser 浏览器自动化命令。
 
 ---

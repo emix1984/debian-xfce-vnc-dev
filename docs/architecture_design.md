@@ -54,9 +54,9 @@ graph TD
 - **目标**：将 `vercel-labs/agent-browser` 作为独立浏览器自动化引擎，注册为 OpenCode 的本地 MCP 服务器，从而使 OpenCode 能够直接驱动浏览器交互与网络自动化。
 - **集成方式**：
   1. 在 `config/setup_agent_browser.py` 中自动下载 `agent-browser` 发行版二进制，并执行 `agent-browser install --with-deps` 以安装 Chromium 运行时依赖。
-  2. 在 `config/setup_mcp.py` 中检测到 `agent-browser` 二进制后，将其加入 MCP servers，使用 `agent-browser mcp --tools core,network,react` 启动本地 MCP 服务。
-  3. 在 `config/setup_skill.py` 中将 `agent-browser` 纳入 Skill 清单，使 OpenCode WebUI 可以在技能列表中展示该能力。
-  4. 在 `config/container-init.sh` 中先安装 `agent-browser`，再执行 MCP 配置，以保证启动时能够正确注册该服务。
+  4. 在 `config/setup_mcp.py` 中检测到 `agent-browser` 二进制后，将其加入 MCP servers，使用 `agent-browser mcp --tools core,network,react` 启动本地 MCP 服务。
+  5. 在 `config/setup_skill.py` 中将 `agent-browser` 纳入 Skill 清单，使 OpenCode WebUI 可以在技能列表中展示该能力。
+  6. `config/container-init.sh` 已调整为模块化启动顺序：先通过 `python3 setup_agent_browser.py` 安装 agent-browser，再通过 `python3 setup_mcp.py` 写入 MCP 配置，随后执行 `setup_plugin.py` 与 `setup_skill.py`，最后在 `tmux` 会话中启动 OpenCode WebUI，保证 MCP 服务在 WebUI 启动前就绪。
 - **运行优势**：
   - 使 OpenCode 除 Puppeteer 之外，拥有一个更现代、系统集成更好的浏览器自动化工具。
   - 通过 `agent-browser mcp` 获取结构化 MCP tool 语义，支持更精细的网络、元素交互与 React 调试工作流。
