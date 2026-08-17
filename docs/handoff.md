@@ -27,3 +27,4 @@
 1. **模式转换决策**：等待男神欧巴下达是否转换成 `prod`（生产模式）的命令。
 2. **远程推送**：等待男神欧巴下达将代码 push 到 GitHub 的指令（当前仅作本地 commit 记录）。
 3. **测试扩展插件的配置文件挂载**：待后续插件（如 `opencode-agent-skills`）正式装载后，需要联调测试它们是否能顺利读取相应的 `base_config` 预设。
+4. **更新流程说明**：`deploy.sh` 已实现非破坏性的交互式更新菜单（在执行任何更新前会 `git fetch` 并显示远端/本地差异摘要；支持 `fast-forward` / `merge` / `rebase` / `stash`+pull 多种选择），并明确保护容器内的 `/headless/Desktop/workspace` 文件夹不被删除或清空。

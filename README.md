@@ -94,6 +94,15 @@ docker compose up -d
 
 如果需要手动运行或微调，可在容器内的 `/headless/Desktop/config/` 中手动执行对应脚本。
 
+### 更新策略（从 GitHub 获取最新代码）
+
+`deploy.sh` 的 “Force Update from GitHub” 菜单项现在采用非破坏性的交互式流程：
+- 在执行任何更新前会 `git fetch` 并显示远端与本地的提交差异摘要与文件改动统计。
+- 提供多种更新策略供选择：`fast-forward`（仅快速合并）、`merge`、`rebase`、或先 `stash` 本地改动再拉取。
+- 明确保证不会删除或清空容器内挂载的工作区目录 `/headless/Desktop/workspace`；若有未提交的本地更改，脚本会建议先 `stash` 或备份。
+
+这是为保护工作区并降低远程更新过程中的数据丢失风险而设计的安全替代方案。
+
 ### Agent-Browser 集成
 容器首次启动时会自动安装 `vercel-labs/agent-browser` CLI，并将其注册为 OpenCode 的本地 MCP 服务。这样，OpenCode WebUI 可以直接将 `agent-browser` 作为一个智能体浏览器工具进行调用。
 
