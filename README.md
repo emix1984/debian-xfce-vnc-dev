@@ -117,7 +117,7 @@ docker compose up -d
 ## 核心底层机制解析
 
 ### 1. container-init.sh 引导机制
-* **CLI 版本精准控制**：安装 OpenCode 核心服务时，脚本会将 OpenCode CLI 核心版本精准控制在 **`v1.17.20`**，确保 100% 成功完成初始化与端口 4096 WebUI 的无阻监听。
+* **CLI 版本精准控制**：安装 OpenCode 核心服务时，脚本会将 OpenCode CLI 核心版本精准控制在 **`v1.18.18`**，确保 100% 成功完成初始化与端口 4096 WebUI 的无阻监听，并提供稳定的插件与 MCP 生态支持。
 * **用户与权限统一**：自动将 `root` 用户的 HOME 目录修正为 `/headless`，与 VNC 桌面环境对齐，避免因双 HOME 路径造成的权限混乱或项目列表撕裂。
 * **隔离策略**：OpenCode 的全局配置文件统一约束在 `/headless/.config/opencode`，与用户私有源码区完全分离。
 

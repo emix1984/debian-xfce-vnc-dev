@@ -58,7 +58,26 @@ if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
   echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
 fi
 
-cd /headless || true
+# 确保工作区目录存在并初始化
+mkdir -p "${ACTUAL_HOME}/Desktop/workspace/.opencode/skills" "${ACTUAL_HOME}/Desktop/workspace/.opencode/plugins"
+if [ ! -d "${ACTUAL_HOME}/Desktop/workspace/.git" ]; then
+  git -C "${ACTUAL_HOME}/Desktop/workspace" init -q || true
+fi
+
+# 写入工作区标准 .gitignore，隔离大型依赖与缓存，防止 OpenCode 递归扫描卡顿
+if [ ! -f "${ACTUAL_HOME}/Desktop/workspace/.gitignore" ]; then
+  cat << 'EOF' > "${ACTUAL_HOME}/Desktop/workspace/.gitignore"
+node_modules/
+.cache/
+*.log
+.DS_Store
+dist/
+build/
+EOF
+  echo "[INFO] Initialized workspace .gitignore"
+fi
+
+cd "${ACTUAL_HOME}/Desktop/workspace" || true
 if tmux has-session -t opencode_web >/dev/null 2>&1; then
   echo "[INFO] Existing tmux session opencode_web found; killing it before restart."
   tmux kill-session -t opencode_web || true
@@ -66,7 +85,7 @@ fi
 
 tmux new-session -d -s opencode_web "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1
 
-echo "[INFO] OpenCode started in tmux session opencode_web."
+echo "[INFO] OpenCode started in tmux session opencode_web from ${ACTUAL_HOME}/Desktop/workspace."
 
 # 4. 等待一下并检查 tmux 会话是否已创建
 sleep 3

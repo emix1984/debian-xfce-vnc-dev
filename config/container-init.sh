@@ -220,8 +220,8 @@ setup_opencode() {
     echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
   fi
 
-  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.20)
-  OPENCODE_TARGET_VERSION="1.17.20"
+  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.18.18)
+  OPENCODE_TARGET_VERSION="1.18.18"
   INSTALLED_CLI_VER=""
   if [ -x "${OPENCODE_BIN}" ]; then
     INSTALLED_CLI_VER="$("${OPENCODE_BIN}" --version 2>/dev/null || true)"
@@ -246,6 +246,23 @@ setup_opencode() {
     python3 /headless/Desktop/config/setup_webui_title.sh || echo "[WARN] WebUI title setup script failed"
   else
     echo "[WARN] setup_webui_title.sh not found; skipping WebUI title patch"
+  fi
+
+  # 配置 Git 兼容性包装器（兼容 OpenCode 1.18 snapshot 机制在 Git < 2.37 下的 --sparse 参数）
+  if [ -x /usr/bin/git ] && [ ! -f /usr/local/bin/git ]; then
+    cat << 'EOF' > /usr/local/bin/git
+#!/usr/bin/env bash
+args=()
+for arg in "$@"; do
+  if [ "$arg" = "--sparse" ]; then
+    continue
+  fi
+  args+=("$arg")
+done
+exec /usr/bin/git "${args[@]}"
+EOF
+    chmod +x /usr/local/bin/git
+    echo "[INFO] Installed Git backward-compatibility wrapper for --sparse at /usr/local/bin/git"
   fi
 
   # 配置全局 Git，OpenCode 依赖 Git 提交记录，如果没有身份信息会报错
@@ -309,7 +326,26 @@ start_opencode_web() {
     return 0
   fi
 
-  cd /headless || true
+  # 确保专用工作区目录存在并初始化
+  mkdir -p /headless/Desktop/workspace/.opencode/skills /headless/Desktop/workspace/.opencode/plugins
+  if [ ! -d /headless/Desktop/workspace/.git ]; then
+    git -C /headless/Desktop/workspace init -q || true
+  fi
+
+  # 写入工作区标准 .gitignore，隔离大型依赖与缓存，防止 OpenCode 递归扫描卡顿
+  if [ ! -f /headless/Desktop/workspace/.gitignore ]; then
+    cat << 'EOF' > /headless/Desktop/workspace/.gitignore
+node_modules/
+.cache/
+*.log
+.DS_Store
+dist/
+build/
+EOF
+    echo "[INFO] Initialized workspace .gitignore"
+  fi
+
+  cd /headless/Desktop/workspace || true
   if tmux has-session -t opencode_web >/dev/null 2>&1; then
     echo "[INFO] tmux session opencode_web already exists. Attaching to it is optional."
   else
@@ -321,7 +357,7 @@ start_opencode_web() {
       EXTRA_ARGS+=( --mdns )
     fi
     tmux new-session -d -s opencode_web "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 "${EXTRA_ARGS[@]}"
-    echo "[INFO] OpenCode Web UI started in tmux session opencode_web."
+    echo "[INFO] OpenCode Web UI started in tmux session opencode_web from /headless/Desktop/workspace."
   fi
 }
 

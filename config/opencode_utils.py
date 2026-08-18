@@ -19,6 +19,10 @@ OPENCODE_CONFIG_DIR = Path(
 )
 OPENCODE_CONFIG_FILE = OPENCODE_CONFIG_DIR / "opencode.jsonc"
 
+# Workspace Level Path Setup
+WORKSPACE_DIR = Path(os.getenv("MCP_WORKSPACE_PATH", str(ACTUAL_HOME / "Desktop" / "workspace")))
+WORKSPACE_OPENCODE_DIR = WORKSPACE_DIR / ".opencode"
+
 # Update PATH
 os.environ["PATH"] = f"{OPENCODE_HOME}/bin:{os.environ.get('PATH', '')}"
 

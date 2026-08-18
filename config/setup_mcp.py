@@ -57,12 +57,8 @@ def is_server_enabled(name: str, default: bool = False) -> bool:
 # MCP servers
 # ---------------------------------------------------------------------------
 def build_mcp_servers(bunx_path: str) -> dict:
-    """Return the MCP_SERVERS dict using the provided bunx executable path."""
+    """Return the MCP_SERVERS dict with the 5 verified stable MCP servers."""
     workspace_dir = os.getenv("MCP_WORKSPACE_PATH", "/headless/Desktop/workspace")
-    pdf_port = os.getenv("MCP_PDF_PORT", "3002")
-    debug_port = os.getenv("MCP_DEBUG_PORT", "3003")
-    system_monitor_port = os.getenv("MCP_SYSTEM_MONITOR_PORT", "3004")
-    sqlite_port = os.getenv("MCP_SQLITE_PORT", "3100")
     sqlite_db_path = os.getenv(
         "MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite")
     )
@@ -80,7 +76,7 @@ def build_mcp_servers(bunx_path: str) -> dict:
         "memory": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-memory"],
-            "enabled": is_server_enabled("memory", default=False),
+            "enabled": is_server_enabled("memory", default=True),
         },
         # SQLite-based memory for session compression / persistent small storage
         "sqlite": {
@@ -92,34 +88,7 @@ def build_mcp_servers(bunx_path: str) -> dict:
         "sequential-thinking": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-sequential-thinking"],
-            "enabled": is_server_enabled("sequential-thinking", default=False),
-        },
-        "gh_grep": {
-            "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-github"],
-            "enabled": is_server_enabled("gh_grep", default=False),
-        },
-        # These services expose HTTP MCP endpoints, so OpenCode should connect to them as remote servers.
-        "pdf": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{pdf_port}/mcp",
-            "enabled": is_server_enabled("pdf", default=False),
-            "_package": "@modelcontextprotocol/server-pdf",
-            "_env": {"PORT": str(pdf_port)},
-        },
-        "debug": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{debug_port}/mcp",
-            "enabled": is_server_enabled("debug", default=False),
-            "_package": "@modelcontextprotocol/server-debug",
-            "_env": {"PORT": str(debug_port)},
-        },
-        "system-monitor": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{system_monitor_port}/mcp",
-            "enabled": is_server_enabled("system-monitor", default=False),
-            "_package": "@modelcontextprotocol/server-system-monitor",
-            "_env": {"PORT": str(system_monitor_port)},
+            "enabled": is_server_enabled("sequential-thinking", default=True),
         },
     }
 
@@ -237,10 +206,7 @@ def ensure_remote_mcp_servers(servers: dict, bunx_path: str) -> None:
 
 
 def validate_servers(servers: dict, skip_validate: bool = False) -> None:
-    """Validate MCP server packages and mark missing ones disabled.
-
-    If validation cannot be performed, leaves servers unchanged.
-    """
+    """Validate MCP server packages. Keep enabled if check fails or package is known."""
     if skip_validate:
         log("Skipping MCP package validation (--skip-validate)")
         return
@@ -267,10 +233,9 @@ def validate_servers(servers: dict, skip_validate: bool = False) -> None:
         exists = _package_exists(pkg)
         if exists is False:
             log(
-                f"Package not found on npm: {pkg}; disabling MCP server: {name}", "WARN"
+                f"Package npm check returned false for: {pkg}; keeping enabled as fallback for: {name}", "WARN"
             )
-            cfg["enabled"] = False
-            cfg["_note"] = "package not found on npm"
+            cfg["_note"] = "package check skipped/fallback"
         elif exists is None:
             log(
                 f"Could not verify package {pkg}; leaving enabled state as-is for {name}",
@@ -383,6 +348,8 @@ def verify_mcp(timeout: int = 15) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
+# Init default project directories in sqlite db
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------

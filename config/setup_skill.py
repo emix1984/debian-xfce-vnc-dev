@@ -17,6 +17,8 @@ import time
 import sys
 from opencode_utils import (
     OPENCODE_HOME,
+    WORKSPACE_DIR,
+    WORKSPACE_OPENCODE_DIR,
     get_log_file,
     log as _log,
     command_exists,
@@ -24,8 +26,9 @@ from opencode_utils import (
 )
 
 LOG_FILE = get_log_file("setup_skill")
-OPENCODE_SKILLS_DIR = os.path.join(OPENCODE_HOME, "skills")
-SKILLS_LIST_FILE = os.path.join(OPENCODE_HOME, "skills.json")
+# 默认配置至工作区级别以支持项目自包含与跨环境迁移
+OPENCODE_SKILLS_DIR = str(WORKSPACE_OPENCODE_DIR / "skills")
+SKILLS_LIST_FILE = str(WORKSPACE_OPENCODE_DIR / "skills.json")
 
 
 def log(msg, level="INFO"):
