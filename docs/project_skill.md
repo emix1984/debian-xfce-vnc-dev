@@ -57,9 +57,7 @@
 - **技术原因**：
   1. npm 直接拉取 Git 代码进行 prepare 的过程极其缓慢且不可靠。
   2. 脚本在 `/headless/.opencode/plugins.json` 中写入了完整的安装标识符（URL），导致 WebUI 加载时把 URL 识别为插件的名字展现出来。
-- **解决方法**：
-  1. 在 `setup_plugin.py` 中，改为将所有依赖以 `{包名: Git地址}` 形式写入 `/headless/.opencode/package.json`，并执行 `bun install` 批量拉取并链接到 `node_modules`。这不仅避免了超时构建错误，且耗时降为数秒级。
-  2. 修改 `write_plugin_list` 逻辑，在写入 `plugins.json` 时，通过 `.split('@')[0]` 过滤只保留简短、纯净的包名。重置并重启 WebUI 服务后，显示界面就会恢复整洁美观。
+- **当前实现**：`setup_plugin.py` 将插件写入 OpenCode v2 全局配置 `/headless/.config/opencode/opencode.jsonc` 的顶层 `plugins` 数组，并将旧格式 `name@git+https://...` 转换为 v2 支持的 Git package spec。独立 `plugins.json` 仅作为脚本管理清单，不负责加载插件。
 
 ---
 
@@ -69,11 +67,11 @@
   `FATAL:electron/shell/app/electron_main_delegate.cc:219] Running as root without --no-sandbox is not supported.`
 - **技术原因**：
   1. `opencode-desktop-linux-arm64.deb` 安装的是 OpenCode 的 Electron 桌面 GUI 程序 (`/opt/OpenCode/ai.opencode.desktop`)，用于 Linux 桌面环境。
-  2. 之前脚本误将 `/usr/bin/opencode` 软链接到了桌面 GUI 程序，导致后台运行 `opencode web` 时错误拉起 Electron GUI，触发 root 免沙箱崩溃，未拉起 CLI HTTP 服务器。
+  2. 后台 HTTP 服务必须由 CLI 二进制启动，不能将 `/usr/bin/opencode` 指向桌面 GUI 程序。
 - **解决方法**：
   1. 保持 `.deb` 桌面程序的正常安装，提供 VNC 桌面 GUI 支持。
-  2. 明确将 `/usr/bin/opencode` 软链接指向 CLI 二进制文件 `${OPENCODE_BIN}` (`/headless/.opencode/bin/opencode`)。
-  3. 在 `container-init.sh` 和 `restart_opencode.sh` 中显式通过 `${OPENCODE_BIN} web` 启动 4096 端口 HTTP WebUI 服务。
+  2. 使用官方 v2 CLI 安装器，并将 `/usr/bin/opencode` 软链接指向 CLI 二进制 `${OPENCODE_BIN}` (`/headless/.opencode/bin/opencode`)。
+  3. v2 使用 `${OPENCODE_BIN} serve --hostname 0.0.0.0 --port 4096` 启动 API 与 Web 服务；`pair` 只显示配对信息，不负责启动服务。
 
 ---
 
@@ -83,8 +81,7 @@
   `error: Script not found "web"`
 - **技术原因**：
   `opencode` 是由 Bun 构建的独立可执行文件（Bun Standalone Executable），它的二进制文件尾部附加了 JS/ZIP 资源包，且在特定字节偏移位置有固定的大小和索引。若修改文件字节长度，会导致偏移量失效，Bun 退化为普通 CLI 并寻找本地的 `web` 脚本。
-- **解决方法**：
-  采用**精确字节等长修补法**。在 [config/opencode_utils.py](file:///Users/esinternational/github/debian-xfce-vnc-dev/config/opencode_utils.py) 中，定位到 `<title>...</title>` 所在的 350 字节窗口，将新的 `<title>新标题</title>` 写入该窗口，若长度不足，用空格补齐以填充剩余字节，若长度超出，则截断，确保文件总大小 **100% 字节保持原样不变**。写入前使用 `pkill -f "opencode web"` 確保釋放二進制文件句柄（規避 Linux `Text file busy` 錯誤），从而完美實現中文自定義網頁標題。
+- **当前兼容性**：v2 安装器的可执行文件布局不保证兼容该 v1 字节补丁；`opencode_utils.py` 检测到 v2 后会跳过二进制写入。自定义网页标题目前仅适用于旧版 v1 CLI。
 
 ---
 

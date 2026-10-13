@@ -86,14 +86,15 @@ docker compose up -d
 ## 核心底层机制解析
 
 ### 1. container-init.sh 引导机制
-* **CLI 版本精准控制**：安装 OpenCode 核心服务时，脚本会将 OpenCode CLI 核心版本精准控制在 **`v1.17.20`**，确保 100% 成功完成初始化与端口 4096 WebUI 的无阻监听。
+* **OpenCode v2 安装**：容器缺少 v2 或仍安装 v1 时，通过官方 `https://opencode.ai/v2/install` 安装最新 v2 CLI；已安装的 v2 不会在每次启动时重复下载。
 * **用户与权限统一**：自动将 `root` 用户的 HOME 目录修正为 `/headless`，与 VNC 桌面环境对齐，避免因双 HOME 路径造成的权限混乱或项目列表撕裂。
-* **隔离策略**：OpenCode 的全局配置文件统一约束在 `/headless/.config/opencode`，与用户私有源码区完全分离。
+* **配置与插件**：全局配置统一位于 `/headless/.config/opencode`，MCP、插件和技能均使用 v2 支持的配置 schema 与自动发现目录。
+* **Web 登录**：服务默认用户名和密码均为 `opencode`。部署时可通过 `OPENCODE_SERVER_USERNAME` 和 `OPENCODE_SERVER_PASSWORD` 覆盖；默认口令仅适用于受信任的开发环境。
 
 ### 2. 自动化配置脚本群 (config 目录)
 
 * **opencode_utils.py**：
-  提供统一的环境变量解析、日志格式化、`bun`/`bunx` 工具自动定位与安装、Web UI HTML `<title>` 标签页标题动态修补（`patch_webui_title`）、以及 Web UI 热重启的公共核心依赖库。
+  提供统一的环境变量解析、日志格式化、`bun`/`bunx` 工具自动定位与安装，以及 Web UI 重启依赖。为避免损坏 v2 CLI，旧版二进制 HTML 标题修补仅兼容 v1，不会修改 v2 可执行文件。
 
 * **setup_mcp.py**：
   负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。同时集成了：
@@ -101,7 +102,7 @@ docker compose up -d
   - **Puppeteer 容器免沙箱配置**：提供 `ALLOW_DANGEROUS` 和 `--no-sandbox` 参数，使浏览器顺利启动。
   - **`base_config` 预设辞典**：在 Python 脚本中统一管理并维护所有开发插件与核心模块的基础配置字段。
 * **setup_plugin.py**：
-  负责写入 `plugins.json`。脚本内含自检逻辑，防止因旧版本残留配置、异常数组占位符造成的后台 Node.js 进程在加载 Workspace 时死锁挂起。
+  负责将插件包声明写入 v2 全局配置的 `plugins` 数组；`plugins.json` 仅用于脚本自检与管理，不作为 OpenCode 的加载配置。
 
 ---
 

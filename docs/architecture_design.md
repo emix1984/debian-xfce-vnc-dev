@@ -44,16 +44,12 @@ graph TD
   - `PUPPETEER_LAUNCH_OPTIONS: '{"args": ["--no-sandbox"]}'`
 
 ### 2.4 OpenCode 插件管理与优化
-- **运行模式**：在 `/headless/.opencode/` 目录下管理全局 Node 项目及其 `node_modules`。
-- **现状与问题**：
-  - 原有机制通过 `opencode plugin <git-url>` 逐个安装 Git-based 插件，因 OpenCode 内部的 npm 包管理器对 Git 依賴處理有 Bug，經常報錯 `git dep preparation failed` 且耗時長。
-  - 安裝後在 WebUI 面板會直接顯示含有 Git 網址的冗長套件名稱，視覺效果不夠精簡高級。
-- **解决方案**：
-  - 改用批量聲明依賴並在 `/headless/.opencode/` 執行 `bun install`。這會以 100% 成功率且數秒內完成所有插件及原生依賴的極速載入。
-  - 將寫入 `/headless/.opencode/plugins.json` 的清單精簡為純淨、無網址的簡短包名。重啟 OpenCode 後，WebUI 即可載入命名乾淨、高雅清爽的插件列表。
+- **运行模式**：在 `/headless/.config/opencode/opencode.jsonc` 的顶层 `plugins` 数组中声明全局插件包，插件依赖由 OpenCode v2 管理。
+- **Git 插件**：将历史 `name@git+https://...` 标识规范化为 v2 支持的 `git+https://...` package spec；不再将独立 `plugins.json` 或 `/headless/.opencode/package.json` 当作 OpenCode 插件配置。
+- **技能发现**：技能文件放在 `/headless/.config/opencode/skills/<skill-id>/SKILL.md`，使用 v2 全局技能发现机制。
 
 ### 2.5 OpenCode 版本控制与 CLI 部署
 - **运行模式**：在 `container-init.sh` 中的 `setup_opencode` 函数中处理。
 - **配置与优势**：
-  - 自动检测并精准锁定 OpenCode CLI 核心版本为 `v1.17.20`（设置 `OPENCODE_TARGET_VERSION="1.17.20"`），防止 CLI 自动升级导致版本漂移。
+  - 检测 OpenCode CLI 是否为 v2；缺少或仍为 v1 时通过 `https://opencode.ai/v2/install` 安装最新 v2，并避免对已安装的 v2 重复下载。
   - 自动配置软链接 `/usr/bin/opencode -> /headless/.opencode/bin/opencode`，保证命令行环境与后台 WebUI 服务无缝调用，且端口 4096 WebUI 稳定流畅无阻。

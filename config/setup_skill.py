@@ -12,17 +12,19 @@ OpenCode Skill 安装和配置脚本
 
 import os
 import json
+import shutil
 import subprocess
 import time
 import sys
 from opencode_utils import (
-    OPENCODE_HOME, get_log_file, log as _log, 
+    OPENCODE_HOME, OPENCODE_CONFIG_DIR, get_log_file, log as _log,
     command_exists, restart_webui
 )
 
 LOG_FILE = get_log_file("setup_skill")
-OPENCODE_SKILLS_DIR = os.path.join(OPENCODE_HOME, "skills")
-SKILLS_LIST_FILE = os.path.join(OPENCODE_HOME, "skills.json")
+OPENCODE_SKILLS_DIR = os.path.join(OPENCODE_CONFIG_DIR, "skills")
+LEGACY_SKILLS_DIR = os.path.join(OPENCODE_HOME, "skills")
+SKILLS_LIST_FILE = os.path.join(OPENCODE_CONFIG_DIR, "skills.json")
 
 def log(msg, level="INFO"):
     _log(msg, level, LOG_FILE)
@@ -95,6 +97,14 @@ SKILL_DESCRIPTIONS = {
 def prepare_skill_dir():
     """创建 skill 配置目录"""
     os.makedirs(OPENCODE_SKILLS_DIR, exist_ok=True)
+    if os.path.isdir(LEGACY_SKILLS_DIR):
+        for entry in os.listdir(LEGACY_SKILLS_DIR):
+            source = os.path.join(LEGACY_SKILLS_DIR, entry)
+            target = os.path.join(OPENCODE_SKILLS_DIR, entry)
+            if os.path.isdir(source):
+                shutil.copytree(source, target, dirs_exist_ok=True)
+            elif os.path.isfile(source):
+                shutil.copy2(source, target)
     log(f"Skill 目录已准备: {OPENCODE_SKILLS_DIR}")
 
 

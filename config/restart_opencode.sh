@@ -12,6 +12,10 @@ LOG_FILE="${LOG_DIR}/opencode_restart.log"
 # OpenCode 路径配置 - 在 consol/debian-xfce-vnc 容器中
 # =====================================
 ACTUAL_HOME="${ACTUAL_HOME:-/headless}"
+export HOME="${ACTUAL_HOME}"
+export OPENCODE_SERVER_USERNAME="${OPENCODE_SERVER_USERNAME:-opencode}"
+export OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-opencode}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${ACTUAL_HOME}/.config}"
 OPENCODE_HOME="${OPENCODE_HOME:-${ACTUAL_HOME}/.opencode}"
 OPENCODE_BIN="${OPENCODE_HOME}/bin/opencode"
 
@@ -23,15 +27,15 @@ echo "========================================"
 
 # 1. 停止现有的 opencode 进程
 echo "[INFO] Stopping existing OpenCode processes..."
-pkill -f "opencode web" || echo "[INFO] No OpenCode process found"
+pkill -f "opencode (web|serve)" || echo "[INFO] No OpenCode process found"
 
 # 等待进程完全停止
 sleep 2
 
 # 2. 确认进程已停止
-if pgrep -f "opencode web" >/dev/null 2>&1; then
+if pgrep -f "opencode (web|serve)" >/dev/null 2>&1; then
   echo "[WARN] OpenCode still running, force killing..."
-  pkill -9 -f "opencode web" || true
+  pkill -9 -f "opencode (web|serve)" || true
   sleep 1
 fi
 
@@ -54,7 +58,7 @@ if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
 fi
 
 cd /headless || true
-nohup "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
+nohup "${OPENCODE_BIN}" serve --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
 OPENCODE_PID=$!
 
 echo "[INFO] OpenCode started with PID: ${OPENCODE_PID}"

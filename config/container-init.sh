@@ -25,9 +25,13 @@ trap cleanup EXIT
 # =====================================
 # consol/debian-xfce-vnc 容器中 root 用户的 HOME 是 /headless
 export ACTUAL_HOME="${ACTUAL_HOME:-/headless}"
+export HOME="${ACTUAL_HOME}"
+export OPENCODE_SERVER_USERNAME="${OPENCODE_SERVER_USERNAME:-opencode}"
+export OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-opencode}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${ACTUAL_HOME}/.config}"
 export OPENCODE_HOME="${OPENCODE_HOME:-${ACTUAL_HOME}/.opencode}"
-export OPENCODE_CONFIG_DIR="${OPENCODE_CONFIG_DIR:-${ACTUAL_HOME}/.config/opencode}"
-export OPENCODE_PLUGINS_DIR="${OPENCODE_HOME}/plugins"
+export OPENCODE_CONFIG_DIR="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME}/opencode}"
+export OPENCODE_PLUGINS_DIR="${OPENCODE_CONFIG_DIR}/plugins"
 export OPENCODE_BIN="${OPENCODE_HOME}/bin/opencode"
 
 echo "========================================"
@@ -37,12 +41,28 @@ echo "[INFO] Container environment: ACTUAL_HOME=${ACTUAL_HOME}, OPENCODE_HOME=${
 
 apt_install() {
   local pkgs=("$@")
+  local source_changed=0
   if [ "${#pkgs[@]}" -eq 0 ]; then
     return 0
   fi
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq
-  apt-get install -y --no-install-recommends -qq "${pkgs[@]}"
+
+  if [ -r /etc/os-release ]; then
+    . /etc/os-release
+    if [ "${VERSION_CODENAME:-}" = "bullseye" ] && grep -q '^deb http://deb.debian.org/debian-security bullseye-security main$' /etc/apt/sources.list; then
+      sed -i 's#^deb http://deb.debian.org/debian-security bullseye-security main$#deb [check-valid-until=no] https://archive.debian.org/debian-security bullseye-security main#' /etc/apt/sources.list
+      source_changed=1
+      echo "[INFO] Debian Bullseye security packages are now fetched from the official archive."
+    fi
+  fi
+
+  if [ "${source_changed}" -eq 1 ]; then
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+  fi
+
+  apt-get -o Acquire::Retries=3 update -qq
+  apt-get -o Acquire::Retries=3 install -y --no-install-recommends -qq "${pkgs[@]}"
 }
 
 setup_users() {
@@ -220,18 +240,28 @@ setup_opencode() {
     echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
   fi
 
-  # 确保 OpenCode CLI 核心命令行程序存在 (精准锁定版本 1.17.20)
-  OPENCODE_TARGET_VERSION="1.17.20"
+  # Install the current v2 CLI when it is missing or a v1 binary is present.
   INSTALLED_CLI_VER=""
   if [ -x "${OPENCODE_BIN}" ]; then
     INSTALLED_CLI_VER="$("${OPENCODE_BIN}" --version 2>/dev/null || true)"
+    INSTALLED_CLI_VER="${INSTALLED_CLI_VER##* }"
   fi
 
-  if [ "${INSTALLED_CLI_VER}" != "${OPENCODE_TARGET_VERSION}" ]; then
-    echo "[INFO] Installing OpenCode CLI version ${OPENCODE_TARGET_VERSION}..."
-    curl -fsSL https://opencode.ai/install | bash -s -- --version "${OPENCODE_TARGET_VERSION}" || echo "[ERROR] Failed to install OpenCode CLI version ${OPENCODE_TARGET_VERSION}"
+  if [[ ! "${INSTALLED_CLI_VER}" =~ ^v?2\. ]]; then
+    echo "[INFO] Installing the latest OpenCode v2 CLI..."
+    if ! curl -fsSL https://opencode.ai/v2/install | bash -s -- --no-modify-path; then
+      echo "[ERROR] Failed to install OpenCode v2 CLI"
+      return 1
+    fi
+    INSTALLED_CLI_VER="$("${OPENCODE_BIN}" --version 2>/dev/null || true)"
+    INSTALLED_CLI_VER="${INSTALLED_CLI_VER##* }"
+    if [[ ! "${INSTALLED_CLI_VER}" =~ ^v?2\. ]]; then
+      echo "[ERROR] OpenCode v2 installation did not produce a v2 CLI (reported: ${INSTALLED_CLI_VER:-unknown})"
+      return 1
+    fi
+    echo "[INFO] OpenCode v2 CLI installed: ${INSTALLED_CLI_VER}"
   else
-    echo "[INFO] OpenCode CLI is ready at ${OPENCODE_BIN} (version ${INSTALLED_CLI_VER})."
+    echo "[INFO] OpenCode v2 CLI is ready at ${OPENCODE_BIN} (version ${INSTALLED_CLI_VER})."
   fi
 
   # 软链接 /usr/bin/opencode 指向 CLI 命令行程序
@@ -254,18 +284,19 @@ setup_opencode() {
   # 确保 PATH 包含 opencode bin
   export PATH="${OPENCODE_HOME}/bin:${PATH}"
 
-  # 使用 nohup 启动 opencode web 并在后台运行 (明确使用 CLI 二进制文件)
+  # OpenCode v2 uses `serve` for the API and Web UI server.
   if [ ! -x "${OPENCODE_BIN}" ]; then
     echo "[WARN] OpenCode CLI executable not found at ${OPENCODE_BIN}; skipping start."
     return 0
   fi
 
-  if pgrep -f "opencode web" >/dev/null 2>&1; then
+  if pgrep -f "opencode serve" >/dev/null 2>&1; then
     echo "[INFO] OpenCode Web UI is already running."
   else
+    pkill -f "opencode web" >/dev/null 2>&1 || true
     cd /headless || true
-    nohup "${OPENCODE_BIN}" web --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
-    echo "[INFO] OpenCode Web UI started with nohup in background."
+    nohup "${OPENCODE_BIN}" serve --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
+    echo "[INFO] OpenCode v2 server started with nohup on port 4096."
   fi
 }
 

@@ -2,6 +2,7 @@
 Shared utilities for OpenCode setup scripts (plugins, skills, etc.)
 """
 import os
+import re
 import shutil
 import time
 import subprocess
@@ -113,6 +114,17 @@ def patch_webui_title(binary_path: Optional[Path] = None, title_str: Optional[st
         return True
 
     try:
+        version_result = subprocess.run(
+            [str(binary_path), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        version_text = f"{version_result.stdout} {version_result.stderr}"
+        if re.search(r"(?:^|\s)v?2\.\d", version_text):
+            log("Skipping binary title patch for OpenCode v2; binary assets are not patched", "WARN", log_file)
+            return False
+
         with open(binary_path, "rb") as f:
             content = f.read()
 
@@ -123,7 +135,6 @@ def patch_webui_title(binary_path: Optional[Path] = None, title_str: Optional[st
             if target_tag in content:
                 log(f"WebUI HTML title is already patched to '{title_str}'", "INFO", log_file)
                 return True
-            import re
             m = re.search(rb"<title>.*?</title>", content)
             if not m:
                 log("HTML <title> tag pattern not found in OpenCode binary", "WARN", log_file)
@@ -148,7 +159,7 @@ def patch_webui_title(binary_path: Optional[Path] = None, title_str: Optional[st
             return False
 
         # Kill running processes so Linux releases the binary file handle
-        subprocess.run(["pkill", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["pkill", "-f", "opencode (web|serve)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1)
 
         with open(binary_path, "wb") as f:
@@ -179,9 +190,9 @@ def restart_webui(port: int = 4096, log_file: Optional[Path] = None) -> None:
     else:
         log(f"{restart_script} not found, restarting directly...", "INFO", log_file)
         # Kill existing processes
-        subprocess.run(["pkill", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["pkill", "-f", "opencode (web|serve)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(2)
-        subprocess.run(["pkill", "-9", "-f", "opencode web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["pkill", "-9", "-f", "opencode (web|serve)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1)
 
         try:
@@ -191,9 +202,13 @@ def restart_webui(port: int = 4096, log_file: Optional[Path] = None) -> None:
             bin_path = "opencode"
 
         webui_log = LOG_DIR / "opencode_web.log"
+        env = os.environ.copy()
+        env["OPENCODE_SERVER_USERNAME"] = env.get("OPENCODE_SERVER_USERNAME") or "opencode"
+        env["OPENCODE_SERVER_PASSWORD"] = env.get("OPENCODE_SERVER_PASSWORD") or "opencode"
         subprocess.Popen(
-            f"nohup {bin_path} web --hostname 0.0.0.0 --port {port} >> {webui_log} 2>&1 &",
+            f"nohup {bin_path} serve --hostname 0.0.0.0 --port {port} >> {webui_log} 2>&1 &",
             shell=True,
+            env=env,
         )
         log("[OK] WebUI launched directly", "INFO", log_file)
 

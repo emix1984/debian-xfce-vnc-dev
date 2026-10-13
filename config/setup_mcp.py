@@ -43,71 +43,31 @@ def log(msg: str, level: str = "INFO") -> None:
 def build_mcp_servers(bunx_path: str) -> dict:
     """Return the MCP_SERVERS dict using the provided bunx executable path."""
     workspace_dir = os.getenv("MCP_WORKSPACE_PATH", "/headless/Desktop/workspace")
-    pdf_port = os.getenv("MCP_PDF_PORT", "3002")
-    debug_port = os.getenv("MCP_DEBUG_PORT", "3003")
-    system_monitor_port = os.getenv("MCP_SYSTEM_MONITOR_PORT", "3004")
-    sqlite_port = os.getenv("MCP_SQLITE_PORT", "3100")
     sqlite_db_path = os.getenv("MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite"))
 
     return {
         "filesystem": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-filesystem", workspace_dir],
-            "enabled": True,
         },
         # Postgres removed by default (not necessary for local dev)
         "puppeteer": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-puppeteer"],
-            "enabled": True,
-            "env": {
+            "environment": {
                 "ALLOW_DANGEROUS": "true",
                 "PUPPETEER_LAUNCH_OPTIONS": '{"args": ["--no-sandbox"]}'
             }
-        },
-        "memory": {
-            "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-memory"],
-            "enabled": True,
         },
         # SQLite-based memory for session compression / persistent small storage
         "sqlite": {
             "type": "local",
             "command": [bunx_path, "@pepk/mcp-memory-sqlite"],
-            "enabled": True,
-            "env": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
-        },
-        "sequential-thinking": {
-            "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-sequential-thinking"],
-            "enabled": True,
+            "environment": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
         },
         "gh_grep": {
             "type": "local",
             "command": [bunx_path, "@modelcontextprotocol/server-github"],
-            "enabled": True,
-        },
-        # These services expose HTTP MCP endpoints, so OpenCode should connect to them as remote servers.
-        "pdf": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{pdf_port}/mcp",
-            "enabled": True,
-            "_package": "@modelcontextprotocol/server-pdf",
-            "_env": {"PORT": str(pdf_port)},
-        },
-        "debug": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{debug_port}/mcp",
-            "enabled": True,
-            "_package": "@modelcontextprotocol/server-debug",
-            "_env": {"PORT": str(debug_port)},
-        },
-        "system-monitor": {
-            "type": "remote",
-            "url": f"http://127.0.0.1:{system_monitor_port}/mcp",
-            "enabled": True,
-            "_package": "@modelcontextprotocol/server-system-monitor",
-            "_env": {"PORT": str(system_monitor_port)},
         },
     }
 
@@ -147,7 +107,7 @@ def _port_open(host: str, port: int) -> bool:
 def ensure_remote_mcp_servers(servers: dict, bunx_path: str) -> None:
     """Start HTTP-based MCP servers that OpenCode should connect to remotely."""
     for name, cfg in servers.items():
-        if cfg.get("type") != "remote" or not cfg.get("enabled"):
+        if cfg.get("type") != "remote" or cfg.get("disabled", False):
             continue
         package = cfg.get("_package")
         if not package:
@@ -228,7 +188,7 @@ def validate_servers(servers: dict, skip_validate: bool = False) -> None:
         exists = _package_exists(pkg)
         if exists is False:
             log(f"Package not found on npm: {pkg}; disabling MCP server: {name}", "WARN")
-            cfg["enabled"] = False
+            cfg["disabled"] = True
             cfg["_note"] = "package not found on npm"
         elif exists is None:
             log(f"Could not verify package {pkg}; leaving enabled state as-is for {name}", "WARN")
@@ -288,7 +248,43 @@ base_config = {
 
 
 def build_config(existing: dict, servers: dict) -> dict:
-    existing["mcp"] = servers
+    removed_servers = {"memory", "pdf", "debug", "system-monitor", "sequential-thinking"}
+    current_mcp = existing.get("mcp", {})
+    if not isinstance(current_mcp, dict):
+        current_mcp = {}
+
+    if isinstance(current_mcp.get("servers"), dict):
+        mcp_options = {key: value for key, value in current_mcp.items() if key != "servers"}
+        current_servers = current_mcp["servers"]
+    else:
+        current_servers = {
+            key: value
+            for key, value in current_mcp.items()
+            if isinstance(value, dict) and value.get("type") in {"local", "remote"}
+        }
+        mcp_options = {key: value for key, value in current_mcp.items() if key not in current_servers}
+
+    if not isinstance(current_servers, dict):
+        current_servers = {}
+
+    normalized_servers = {}
+    for name, server in {**current_servers, **servers}.items():
+        if name in removed_servers:
+            continue
+        normalized = {
+            key: value
+            for key, value in server.items()
+            if not key.startswith("_") and key != "enabled"
+        }
+        if server.get("enabled") is False:
+            normalized["disabled"] = True
+        if "env" in server and server.get("type") == "local":
+            normalized["environment"] = server["env"]
+        if "_env" in server and server.get("type") == "local":
+            normalized["environment"] = server["_env"]
+        normalized_servers[name] = normalized
+
+    existing["mcp"] = {**mcp_options, "servers": normalized_servers}
     existing.pop("base_config", None)
     return existing
 
@@ -301,7 +297,7 @@ def write_config(config: dict) -> None:
             f.write(content)
         # Verify write
         verify = json.loads(OPENCODE_CONFIG_FILE.read_text(encoding="utf-8"))
-        assert "mcp" in verify and len(verify["mcp"]) == len(config["mcp"])
+        assert verify["mcp"]["servers"].keys() == config["mcp"]["servers"].keys()
         log(f"Config written and verified: {OPENCODE_CONFIG_FILE}")
     except Exception as e:
         log(f"ERROR writing config: {e}", "ERROR")

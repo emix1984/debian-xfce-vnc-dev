@@ -77,6 +77,8 @@ VNC_RESOLUTION=1280x720
 VNC_PW=1234
 TZ=Asia/Seoul
 OPENCODE_WEBUI_TITLE=OpenCode
+OPENCODE_SERVER_USERNAME=opencode
+OPENCODE_SERVER_PASSWORD=opencode
 
 EOF
     echo -e "${GREEN}[OK] Private configuration file ($CONFIG_FILE) created.${NC}"
@@ -104,6 +106,8 @@ EOF
   VNC_PW="${VNC_PW:-1234}"
   TZ="${TZ:-Asia/Seoul}"
   OPENCODE_WEBUI_TITLE="${OPENCODE_WEBUI_TITLE:-OpenCode}"
+  export OPENCODE_SERVER_USERNAME="${OPENCODE_SERVER_USERNAME:-opencode}"
+  export OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-opencode}"
 }
 
 # --- Save Single Parameter ---
