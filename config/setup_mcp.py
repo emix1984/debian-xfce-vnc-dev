@@ -21,6 +21,7 @@ from opencode_utils import (
     LOG_DIR,
     get_log_file,
     log as _log,
+    find_agent_browser,
     find_bunx,
     ensure_bunx,
     restart_webui as _restart_webui,
@@ -34,6 +35,21 @@ def log(msg: str, level: str = "INFO") -> None:
     _log(msg, level, LOG_FILE)
 
 
+def parse_list(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def is_server_enabled(name: str, default: bool = False) -> bool:
+    enabled_list = parse_list(os.getenv("MCP_ENABLED_SERVERS", ""))
+    disabled_list = parse_list(os.getenv("MCP_DISABLED_SERVERS", ""))
+
+    if enabled_list:
+        return name in enabled_list
+    if disabled_list:
+        return name not in disabled_list
+    return default
+
+
 # BUNX resolution is performed at runtime in main()
 
 
@@ -41,35 +57,59 @@ def log(msg: str, level: str = "INFO") -> None:
 # MCP servers
 # ---------------------------------------------------------------------------
 def build_mcp_servers(bunx_path: str) -> dict:
-    """Return the MCP_SERVERS dict using the provided bunx executable path."""
+    """Return the MCP_SERVERS dict with the 5 verified stable MCP servers."""
     workspace_dir = os.getenv("MCP_WORKSPACE_PATH", "/headless/Desktop/workspace")
-    sqlite_db_path = os.getenv("MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite"))
+    sqlite_db_path = os.getenv(
+        "MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite")
+    )
 
-    return {
+    servers = {
         "filesystem": {
             "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-filesystem", workspace_dir],
+            "command": [
+                bunx_path,
+                "@modelcontextprotocol/server-filesystem",
+                workspace_dir,
+            ],
+            "enabled": is_server_enabled("filesystem", default=True),
         },
-        # Postgres removed by default (not necessary for local dev)
-        "puppeteer": {
+        "memory": {
             "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-puppeteer"],
-            "environment": {
-                "ALLOW_DANGEROUS": "true",
-                "PUPPETEER_LAUNCH_OPTIONS": '{"args": ["--no-sandbox"]}'
-            }
+            "command": [bunx_path, "@modelcontextprotocol/server-memory"],
+            "enabled": is_server_enabled("memory", default=True),
         },
         # SQLite-based memory for session compression / persistent small storage
         "sqlite": {
             "type": "local",
             "command": [bunx_path, "@pepk/mcp-memory-sqlite"],
+            "enabled": is_server_enabled("sqlite", default=True),
+            "env": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
             "environment": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
         },
-        "gh_grep": {
+        "sequential-thinking": {
             "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-github"],
+            "command": [bunx_path, "@modelcontextprotocol/server-sequential-thinking"],
+            "enabled": is_server_enabled("sequential-thinking", default=True),
         },
     }
+
+    agent_browser_path = os.getenv("AGENT_BROWSER_BIN") or find_agent_browser()
+    if agent_browser_path:
+        agent_tools = os.getenv("MCP_AGENT_BROWSER_TOOLS", "core,network,react")
+        servers["agent-browser"] = {
+            "type": "local",
+            "command": [agent_browser_path, "mcp", "--tools", agent_tools],
+            "enabled": is_server_enabled("agent-browser", default=True),
+            "env": {
+                "AGENT_BROWSER_IDLE_TIMEOUT_MS": os.getenv(
+                    "AGENT_BROWSER_IDLE_TIMEOUT_MS", "600000"
+                ),
+            },
+        }
+    else:
+        log("agent-browser binary not found; skipping agent-browser MCP server", "WARN")
+
+    return servers
 
 
 def _npm_available() -> bool:
@@ -87,7 +127,12 @@ def _package_exists(pkg_name: str) -> Optional[bool]:
         log("npm not available; skipping package existence checks", "WARN")
         return None
     try:
-        result = subprocess.run(["npm", "view", pkg_name, "version"], capture_output=True, text=True, timeout=15)
+        result = subprocess.run(
+            ["npm", "view", pkg_name, "version"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
         if result.returncode == 0 and result.stdout.strip():
             return True
         return False
@@ -162,10 +207,7 @@ def ensure_remote_mcp_servers(servers: dict, bunx_path: str) -> None:
 
 
 def validate_servers(servers: dict, skip_validate: bool = False) -> None:
-    """Validate MCP server packages and mark missing ones disabled.
-
-    If validation cannot be performed, leaves servers unchanged.
-    """
+    """Validate MCP server packages. Keep enabled if check fails or package is known."""
     if skip_validate:
         log("Skipping MCP package validation (--skip-validate)")
         return
@@ -180,18 +222,27 @@ def validate_servers(servers: dict, skip_validate: bool = False) -> None:
             if not isinstance(token, str):
                 continue
             stripped = token.strip()
-            if stripped.startswith("@") or stripped.startswith("modelcontextprotocol") or stripped.startswith("server-"):
+            if (
+                stripped.startswith("@")
+                or stripped.startswith("modelcontextprotocol")
+                or stripped.startswith("server-")
+            ):
                 pkg = stripped
                 break
         if not pkg:
             continue
         exists = _package_exists(pkg)
         if exists is False:
-            log(f"Package not found on npm: {pkg}; disabling MCP server: {name}", "WARN")
-            cfg["disabled"] = True
-            cfg["_note"] = "package not found on npm"
+            log(
+                f"Package npm check returned false for: {pkg}; keeping enabled as fallback for: {name}",
+                "WARN",
+            )
+            cfg["_note"] = "package check skipped/fallback"
         elif exists is None:
-            log(f"Could not verify package {pkg}; leaving enabled state as-is for {name}", "WARN")
+            log(
+                f"Could not verify package {pkg}; leaving enabled state as-is for {name}",
+                "WARN",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +294,7 @@ base_config = {
     "opencode-type-inject": {},
     "opencode-browser": {},
     "opencode-arise": {},
-    "opencode-token-monitor": {}
+    "opencode-token-monitor": {},
 }
 
 
@@ -336,13 +387,20 @@ def verify_mcp(timeout: int = 15) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Init default project directories in sqlite db
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser(description="Configure OpenCode MCP servers")
     parser.add_argument("--dry-run", action="store_true", help="Generate config only")
-    parser.add_argument("--skip-validate", action="store_true", help="Skip npm package existence validation")
+    parser.add_argument(
+        "--skip-validate",
+        action="store_true",
+        help="Skip npm package existence validation",
+    )
     parser.add_argument("--no-restart", action="store_true", help="Skip restart")
     args = parser.parse_args()
 

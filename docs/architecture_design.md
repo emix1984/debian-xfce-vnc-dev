@@ -14,7 +14,7 @@ graph TD
     Host["宿主机 (Host)"]
     Container["VNC 容器 (debian-xfce-vnc)"]
     OpenCode["OpenCode WebUI"]
-    LocalMCP["本地 MCP 进程 (Filesystem, Puppeteer, Sequential Thinking)"]
+    LocalMCP["本地 MCP 进程 (Filesystem, Agent Browser, Sequential Thinking)"]
     RemoteMCP["远程 MCP 进程 (SQLite, PDF, System Monitor)"]
 
     Host -- deploy.sh --> Container
@@ -36,19 +36,28 @@ graph TD
 - **运行模式**：Local (由 OpenCode 自动拉起，使用 Stdio 管道)。
 - **持久化路径**：`/headless/.config/opencode/opencode.sqlite`
 
-### 2.3 Puppeteer 浏览器自动化服务
-- **运行模式**：Local (由 OpenCode 自动拉起)。
-- **安全配置**：因为容器运行于 `root` 权限，默认的 Chromium 沙箱会报错导致启动失败。
-- **解决方案**：在 `opencode.jsonc` 配置文件中为 `puppeteer` 配置注入环境变量：
-  - `ALLOW_DANGEROUS: "true"`
-  - `PUPPETEER_LAUNCH_OPTIONS: '{"args": ["--no-sandbox"]}'`
+### 2.3 浏览器自动化策略
+- **现状**：`puppeteer` 本地 MCP 服务已从默认 OpenCode 配置中移除，以避免不必要的浏览器进程和容器资源浪费。
+- **替代方案**：使用 `agent-browser` 作为首选浏览器自动化引擎，并将其注册为 OpenCode 的本地 MCP 服务。
+- **优点**：`agent-browser` 提供更现代的浏览器自动化语义接口，减少 root 容器下的沙箱配置风险，同时支持按需启动。
 
 ### 2.4 OpenCode 插件管理与优化
 - **运行模式**：在 `/headless/.config/opencode/opencode.jsonc` 的顶层 `plugins` 数组中声明全局插件包，插件依赖由 OpenCode v2 管理。
 - **Git 插件**：将历史 `name@git+https://...` 标识规范化为 v2 支持的 `git+https://...` package spec；不再将独立 `plugins.json` 或 `/headless/.opencode/package.json` 当作 OpenCode 插件配置。
 - **技能发现**：技能文件放在 `/headless/.config/opencode/skills/<skill-id>/SKILL.md`，使用 v2 全局技能发现机制。
 
-### 2.5 OpenCode 版本控制与 CLI 部署
+### 2.5 Agent-Browser 浏览器自动化集成
+- **目标**：将 `vercel-labs/agent-browser` 作为独立浏览器自动化引擎，注册为 OpenCode 的本地 MCP 服务器，从而使 OpenCode 能够直接驱动浏览器交互与网络自动化。
+- **集成方式**：
+  1. 在 `config/setup_agent_browser.py` 中自动下载 `agent-browser` 发行版二进制，并执行 `agent-browser install --with-deps` 以安装 Chromium 运行时依赖。
+  4. 在 `config/setup_mcp.py` 中检测到 `agent-browser` 二进制后，将其加入 MCP servers，使用 `agent-browser mcp --tools core,network,react` 启动本地 MCP 服务。
+  5. 在 `config/setup_skill.py` 中将 `agent-browser` 纳入 Skill 清单，使 OpenCode WebUI 可以在技能列表中展示该能力。
+  6. `config/container-init.sh` 已调整为模块化启动顺序：先通过 `python3 setup_agent_browser.py` 安装 agent-browser，再通过 `python3 setup_mcp.py` 写入 MCP 配置，随后执行 `setup_plugin.py` 与 `setup_skill.py`，最后在 `tmux` 会话中启动 OpenCode WebUI，保证 MCP 服务在 WebUI 启动前就绪。
+- **运行优势**：
+  - 使 OpenCode 除 Puppeteer 之外，拥有一个更现代、系统集成更好的浏览器自动化工具。
+  - 通过 `agent-browser mcp` 获取结构化 MCP tool 语义，支持更精细的网络、元素交互与 React 调试工作流。
+
+### 2.6 OpenCode 版本控制与 CLI 部署
 - **运行模式**：在 `container-init.sh` 中的 `setup_opencode` 函数中处理。
 - **配置与优势**：
   - 检测 OpenCode CLI 是否为 v2；缺少或仍为 v1 时通过 `https://opencode.ai/v2/install` 安装最新 v2，并避免对已安装的 v2 重复下载。

@@ -51,27 +51,55 @@ if ! command -v opencode >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "[ERROR] tmux not installed; cannot start OpenCode in a detached session"
+  exit 1
+fi
+
 # 修正 /etc/passwd 中 root 的 HOME（与 container-init.sh 保持一致）
 if grep -q '^root:.*:/root:' /etc/passwd 2>/dev/null; then
   sed -i 's|^root:\(.*\):/root:|root:\1:/headless:|' /etc/passwd
   echo "[INFO] Fixed root HOME in /etc/passwd: /root -> /headless"
 fi
 
-cd /headless || true
-nohup "${OPENCODE_BIN}" serve --hostname 0.0.0.0 --port 4096 >> "${LOG_DIR}/opencode_web.log" 2>&1 &
-OPENCODE_PID=$!
+# 确保工作区目录存在并初始化
+mkdir -p "${ACTUAL_HOME}/Desktop/workspace/.opencode/skills" "${ACTUAL_HOME}/Desktop/workspace/.opencode/plugins"
+if [ ! -d "${ACTUAL_HOME}/Desktop/workspace/.git" ]; then
+  git -C "${ACTUAL_HOME}/Desktop/workspace" init -q || true
+fi
 
-echo "[INFO] OpenCode started with PID: ${OPENCODE_PID}"
+# 写入工作区标准 .gitignore，隔离大型依赖与缓存，防止 OpenCode 递归扫描卡顿
+if [ ! -f "${ACTUAL_HOME}/Desktop/workspace/.gitignore" ]; then
+  cat << 'EOF' > "${ACTUAL_HOME}/Desktop/workspace/.gitignore"
+node_modules/
+.cache/
+*.log
+.DS_Store
+dist/
+build/
+EOF
+  echo "[INFO] Initialized workspace .gitignore"
+fi
 
-# 4. 等待一下并检查进程是否在运行
+cd "${ACTUAL_HOME}/Desktop/workspace" || true
+if tmux has-session -t opencode_web >/dev/null 2>&1; then
+  echo "[INFO] Existing tmux session opencode_web found; killing it before restart."
+  tmux kill-session -t opencode_web || true
+fi
+
+tmux new-session -d -s opencode_web bash -c "${OPENCODE_BIN} serve --hostname 0.0.0.0 --port 4096 >> \"${LOG_DIR}/opencode_web.log\" 2>&1"
+
+echo "[INFO] OpenCode started in tmux session opencode_web from ${ACTUAL_HOME}/Desktop/workspace."
+
+# 4. 等待一下并检查 tmux 会话是否已创建
 sleep 3
 
-if ps -p ${OPENCODE_PID} >/dev/null 2>&1; then
-  echo "[INFO] OpenCode is running successfully."
+if tmux has-session -t opencode_web >/dev/null 2>&1; then
+  echo "[INFO] OpenCode is running successfully in tmux session opencode_web."
   echo "========================================"
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] OpenCode restart DONE"
   echo "========================================"
 else
-  echo "[ERROR] OpenCode failed to start. Check logs at ${LOG_DIR}/opencode_web.log"
+  echo "[ERROR] OpenCode failed to start in tmux. Check logs at ${LOG_DIR}/opencode_web.log"
   exit 1
 fi

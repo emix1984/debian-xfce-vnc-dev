@@ -74,12 +74,43 @@ docker compose up -d
 * 桌面上挂载的 `workspace` 文件夹是一个纯净的开发沙盒；`config` 文件夹内包含了所有的系统安装与连接脚本。
 
 ### 3. 配置 OpenCode 智能体环境
-容器首次启动时会自动执行 `config/container-init.sh` 脚本。该脚本会自动补齐 Node.js 22、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 自动生成 OpenCode 的 MCP 配置，默认启用本地文件系统、Puppeteer 浏览器、记忆与远程 PDF/调试/系统监控等服务。
+容器首次启动时会自动执行 `config/container-init.sh` 脚本。该脚本会自动补齐 Node.js 22、npm 与 bun/bunx，并调用 `config/setup_mcp.py` 自动生成 OpenCode 的 MCP 配置。默认启用本地文件系统、内存服务、SQLite 存储和 agent-browser；其它可选服务可通过环境变量按需启用。
 
-如果需要手动运行或微调，可以在容器内的 `/headless/Desktop/config/` 路径下手动运行对应的初始化脚本：
-- **MCP 服务配置**：`python3 setup_mcp.py`
-- **插件装载**：`python3 setup_plugin.py`
-- **技能包导入**：`python3 setup_skill.py`
+支持的动态环境变量：
+- `MCP_ENABLED_SERVERS`：逗号分隔的服务白名单，优先于 `MCP_DISABLED_SERVERS`。
+- `MCP_DISABLED_SERVERS`：逗号分隔的服务黑名单，用于禁用默认开启的服务。
+- `MCP_AGENT_BROWSER_TOOLS`：传递给 `agent-browser mcp --tools` 的工具集。
+
+`container-init.sh` 会自动执行以下脚本，将 agent-browser、MCP、插件和技能配置模块化地纳入容器初始化流程：
+- **Agent Browser**：`python3 setup_agent_browser.py` (安装并准备 `agent-browser` CLI)
+- **MCP 服务配置**：`python3 setup_mcp.py` (生成并写入 `~/.config/opencode/opencode.jsonc`，按需启用远程/本地 MCP 服务)
+- **插件装载**：`python3 setup_plugin.py` (写入 `plugins.json` 并通过 `bun install` 批量准备依赖)
+- **技能包导入**：`python3 setup_skill.py` (写入 `skills.json`，将 `agent-browser` 列入技能清单)
+
+说明要点：
+- `setup_webui_title.sh` 是 Python 脚本，容器启动时通过 `python3 /headless/Desktop/config/setup_webui_title.sh` 调用（不要用 `bash` 直接执行）。
+- 容器内的 OpenCode WebUI 启动与重启现在使用 `tmux` 会话 (`opencode_web`)，`container-init.sh` 与 `config/restart_opencode.sh` 均改为使用 `tmux` 后台运行以便管理与日志收集。
+- MCP 服务采用按需启用策略（opt-in/opt-out），通过环境变量 `MCP_ENABLED_SERVERS` / `MCP_DISABLED_SERVERS` 控制；默认已移除 `puppeteer` 的强制启用。
+
+如果需要手动运行或微调，可在容器内的 `/headless/Desktop/config/` 中手动执行对应脚本。
+
+### 更新策略（从 GitHub 获取最新代码）
+
+`deploy.sh` 的 “Force Update from GitHub” 菜单项现在采用非破坏性的交互式流程：
+- 在执行任何更新前会 `git fetch` 并显示远端与本地的提交差异摘要与文件改动统计。
+- 提供多种更新策略供选择：`fast-forward`（仅快速合并）、`merge`、`rebase`、或先 `stash` 本地改动再拉取。
+- 明确保证不会删除或清空容器内挂载的工作区目录 `/headless/Desktop/workspace`；若有未提交的本地更改，脚本会建议先 `stash` 或备份。
+
+这是为保护工作区并降低远程更新过程中的数据丢失风险而设计的安全替代方案。
+
+### Agent-Browser 集成
+容器首次启动时会自动安装 `vercel-labs/agent-browser` CLI，并将其注册为 OpenCode 的本地 MCP 服务。这样，OpenCode WebUI 可以直接将 `agent-browser` 作为一个智能体浏览器工具进行调用。
+
+该集成包括：
+- 自动下载 `agent-browser` Rust 二进制并创建 `/usr/local/bin/agent-browser` 软链接。
+- 执行 `agent-browser install --with-deps` 来安装 Chromium 及 Linux 运行时依赖。
+- 在 `setup_mcp.py` 中启用 `agent-browser` MCP 服务，使用 `agent-browser mcp --tools core,network,react` 启动。
+- 在 `setup_skill.py` 中将 `agent-browser` 列入 OpenCode 技能清单。
 
 ---
 
@@ -99,7 +130,7 @@ docker compose up -d
 * **setup_mcp.py**：
   负责生成并写入 OpenCode 的 MCP 配置，自动安装或定位 `bunx`，校验常用 MCP 包是否可用，并在需要时启动 SQLite / PDF / 调试 / 系统监控等远程 MCP 服务，解决 Linux `headless` 环境下的依赖与连接问题。同时集成了：
   - **Node.js 22 LTS 升级机制**：避免旧版 Node 导致的 better-sqlite3 编译崩溃。
-  - **Puppeteer 容器免沙箱配置**：提供 `ALLOW_DANGEROUS` 和 `--no-sandbox` 参数，使浏览器顺利启动。
+  - **Puppeteer 已移除**：默认配置已停止启用 `puppeteer`，改为使用 `agent-browser` 作为更现代的浏览器自动化引擎。
   - **`base_config` 预设辞典**：在 Python 脚本中统一管理并维护所有开发插件与核心模块的基础配置字段。
 * **setup_plugin.py**：
   负责将插件包声明写入 v2 全局配置的 `plugins` 数组；`plugins.json` 仅用于脚本自检与管理，不作为 OpenCode 的加载配置。
