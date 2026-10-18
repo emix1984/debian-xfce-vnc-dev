@@ -57,7 +57,7 @@ def is_server_enabled(name: str, default: bool = False) -> bool:
 # MCP servers
 # ---------------------------------------------------------------------------
 def build_mcp_servers(bunx_path: str) -> dict:
-    """Return the MCP_SERVERS dict with the 5 verified stable MCP servers."""
+    """Return the MCP_SERVERS dict with verified stable MCP servers."""
     workspace_dir = os.getenv("MCP_WORKSPACE_PATH", "/headless/Desktop/workspace")
     sqlite_db_path = os.getenv(
         "MCP_SQLITE_DB_PATH", str(OPENCODE_CONFIG_DIR / "opencode.sqlite")
@@ -73,11 +73,6 @@ def build_mcp_servers(bunx_path: str) -> dict:
             ],
             "enabled": is_server_enabled("filesystem", default=True),
         },
-        "memory": {
-            "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-memory"],
-            "enabled": is_server_enabled("memory", default=True),
-        },
         # SQLite-based memory for session compression / persistent small storage
         "sqlite": {
             "type": "local",
@@ -85,11 +80,6 @@ def build_mcp_servers(bunx_path: str) -> dict:
             "enabled": is_server_enabled("sqlite", default=True),
             "env": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
             "environment": {"MCP_SQLITE_DB_PATH": sqlite_db_path},
-        },
-        "sequential-thinking": {
-            "type": "local",
-            "command": [bunx_path, "@modelcontextprotocol/server-sequential-thinking"],
-            "enabled": is_server_enabled("sequential-thinking", default=True),
         },
     }
 
@@ -262,44 +252,7 @@ def read_existing_config() -> dict:
 # ---------------------------------------------------------------------------
 # Merge & write config
 # ---------------------------------------------------------------------------
-base_config = {
-    "searxng": {"base_url": "http://localhost:8080"},
-    "dcp": {"max_tokens": 4000, "strategy": "semantic"},
-    "mem0": {"storage": "sqlite:///mem0.db"},
-    "browser": {"engine": "playwright", "headless": True},
-    "local_embedding": {"storage": "faiss_index"},
-    "local_llm": {"engine": "ollama", "model": "qwen2.5-coder:32b"},
-    "filesystem": {"root_path": "/headless/Desktop/workspace"},
-    "shell": {"safe_mode": True},
-    "pdf_parser": {"storage": "parsed_docs"},
-    "sqlite": {"db_path": "local_data.db"},
-    # ---- Placeholder modules (empty dicts) ----
-    "bestof": {},
-    "comparisons": {},
-    "studying": {},
-    "flashcards": {},
-    "practice-test": {},
-    "generate-quiz": {},
-    "shopping-savings": {},
-    "genui": {},
-    "practice-test-orchestrator": {},
-    "search_uploaded_documents": {},
-    # ---- Additional optional modules (empty dicts) ----
-    "oh-my-opencode-slim": {},
-    "superpowers": {},
-    "opencode-pty": {},
-    "opencode-supermemory": {},
-    "opencode-agent-skills": {},
-    "opencode-worktree": {},
-    "opencode-type-inject": {},
-    "opencode-browser": {},
-    "opencode-arise": {},
-    "opencode-token-monitor": {},
-}
-
-
 def build_config(existing: dict, servers: dict) -> dict:
-    removed_servers = {"memory", "pdf", "debug", "system-monitor", "sequential-thinking"}
     current_mcp = existing.get("mcp", {})
     if not isinstance(current_mcp, dict):
         current_mcp = {}
@@ -320,8 +273,6 @@ def build_config(existing: dict, servers: dict) -> dict:
 
     normalized_servers = {}
     for name, server in {**current_servers, **servers}.items():
-        if name in removed_servers:
-            continue
         normalized = {
             key: value
             for key, value in server.items()

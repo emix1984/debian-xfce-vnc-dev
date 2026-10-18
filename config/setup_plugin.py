@@ -38,24 +38,13 @@ PLUGINS = [
     "opencode-supermemory",
 ]
 
-# Exact package IDs used by earlier versions of this script. Remove these
-# registrations during migration, then only write the four selected v2 plugins.
-LEGACY_MANAGED_PLUGIN_IDS = {
+# Active managed plugin package IDs
+MANAGED_PLUGIN_IDS = {
     "oh-my-opencode-slim",
     "superpowers",
     "opencode-pty",
     "opencode-pty/v2",
     "opencode-supermemory",
-    "opencode-agent-skills",
-    "opencode-chrome-devtools",
-    "opencode-browser",
-    "opencode-arise",
-    "opencode-token-monitor",
-    "opencode-tmux-plugin",
-    "opencode-preview",
-    "opencode-wakatime",
-    "opencode-helicone-session",
-    "opencode-eslint-formatter",
 }
 
 
@@ -74,8 +63,8 @@ def plugin_package_id(plugin):
 def is_managed_plugin(plugin):
     package_id = plugin_package_id(plugin)
     return any(
-        package_id == legacy_id or package_id.startswith(f"{legacy_id}/")
-        for legacy_id in LEGACY_MANAGED_PLUGIN_IDS
+        package_id == managed_id or package_id.startswith(f"{managed_id}/")
+        for managed_id in MANAGED_PLUGIN_IDS
     )
 
 
