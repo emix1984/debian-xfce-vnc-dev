@@ -35,7 +35,6 @@ PLUGINS = [
     "oh-my-opencode-slim@2.2.25",
     "superpowers@git+https://github.com/obra/superpowers.git#v6.4.1",
     {"package": "opencode-pty/v2"},
-    "opencode-supermemory",
 ]
 
 # Active managed plugin package IDs
@@ -44,7 +43,6 @@ MANAGED_PLUGIN_IDS = {
     "superpowers",
     "opencode-pty",
     "opencode-pty/v2",
-    "opencode-supermemory",
 }
 
 
